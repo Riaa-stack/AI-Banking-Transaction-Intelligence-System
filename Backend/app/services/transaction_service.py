@@ -1,0 +1,385 @@
+import uuid
+from decimal import Decimal
+
+from app.extensions import db
+from app.ai.ai_service import AIService
+from app.models.bank_account import (
+    BankAccount,
+    AccountStatus
+)
+from app.models.transaction import (
+    Transaction,
+    TransactionStatus,
+    TransactionSource,
+    TransactionType
+)
+
+
+class TransactionService:
+
+    MAX_TRANSACTION_LIMIT = Decimal("100000")
+
+    # ==================================================
+    # Send Money
+    # ==================================================
+
+    @staticmethod
+    def send_money(user_id, data):
+
+        try:
+
+            # ==========================================
+            # Fetch Sender Account
+            # ==========================================
+
+            sender_account = BankAccount.query.filter_by(
+                id=data["sender_account_id"],
+                user_id=user_id
+            ).first()
+
+            if not sender_account:
+                return False, "Sender account not found."
+
+            # ==========================================
+            # Account Status
+            # ==========================================
+
+            if sender_account.account_status != AccountStatus.ACTIVE:
+                return False, "Your account is not active."
+
+            # ==========================================
+            # Amount Validation
+            # ==========================================
+
+            amount = Decimal(str(data["amount"]))
+
+            if amount <= 0:
+                return False, "Transaction amount must be greater than zero."
+
+            if amount > TransactionService.MAX_TRANSACTION_LIMIT:
+                return (
+                    False,
+                    f"Maximum transaction limit is ₹{TransactionService.MAX_TRANSACTION_LIMIT}."
+                )
+
+            # ==========================================
+            # Self Transfer Check
+            # ==========================================
+
+            if (
+                sender_account.account_number ==
+                data["receiver_account_number"]
+            ):
+                return (
+                    False,
+                    "You cannot transfer money to your own account."
+                )
+
+            # ==========================================
+            # Balance Check
+            # ==========================================
+
+            if sender_account.current_balance < amount:
+                return False, "Insufficient account balance."
+
+            balance_before = sender_account.current_balance
+            balance_after = balance_before - amount
+
+            # ==========================================
+            # Update Balance
+            # ==========================================
+
+            sender_account.current_balance = balance_after
+
+            # ==========================================
+            # Generate Transaction Reference
+            # ==========================================
+
+            transaction_reference = (
+                "TXN-" +
+                uuid.uuid4().hex[:12].upper()
+            )
+
+            # ==========================================
+            # Create Transaction
+            # ==========================================
+
+            transaction = Transaction(
+
+                transaction_reference=transaction_reference,
+
+                sender_account_id=sender_account.id,
+
+                receiver_name=data["receiver_name"],
+
+                receiver_account_number=data[
+                    "receiver_account_number"
+                ],
+
+                receiver_bank=data["receiver_bank"],
+
+                receiver_ifsc=data["receiver_ifsc"],
+
+                amount=amount,
+
+                remarks=data.get("remarks", ""),
+
+                transaction_type=TransactionType.DEBIT,
+
+                available_balance_before=balance_before,
+
+                available_balance_after=balance_after,
+
+                transaction_source=TransactionSource(
+                    data["transaction_source"]
+                ),
+
+                transaction_status=TransactionStatus.PENDING
+            )
+
+            db.session.add(transaction)
+            db.session.commit()
+
+            # ==========================================
+            # AI Analysis
+            # ==========================================
+
+            try:
+
+                ai_result = AIService.analyze_transaction(
+                    transaction,
+                    sender_account
+                )
+
+                transaction.ai_reviewed = True
+
+                transaction.risk_score = ai_result[
+                    "monitoring"
+                ]["risk_score"]
+
+                transaction.fraud_probability = ai_result[
+                    "fraud"
+                ]["fraud_probability"]
+
+                transaction.fraud_status = ai_result[
+                    "fraud"
+                ]["fraud_status"]
+
+                transaction.ai_explanation = ai_result.get(
+                    "explanation",
+                    "Transaction analyzed successfully."
+                )
+
+                if (
+                    transaction.fraud_status.lower()
+                    == "blocked"
+                ):
+                    transaction.transaction_status = (
+                        TransactionStatus.BLOCKED
+                    )
+
+                else:
+                    transaction.transaction_status = (
+                        TransactionStatus.SUCCESS
+                    )
+
+            except Exception:
+
+                # Transaction succeeds even if AI fails
+                transaction.ai_reviewed = False
+
+            db.session.commit()
+
+            return True, {
+
+                "transaction_id": str(transaction.id),
+
+                "transaction_reference":
+                    transaction.transaction_reference,
+
+                "amount":
+                    float(transaction.amount),
+
+                "available_balance":
+                    float(sender_account.current_balance),
+
+                "transaction_status":
+                    transaction.transaction_status.value,
+
+                "risk_score":
+                    transaction.risk_score,
+
+                "fraud_probability":
+                    transaction.fraud_probability,
+
+                "fraud_status":
+                    transaction.fraud_status,
+
+                "ai_explanation":
+                    transaction.ai_explanation
+
+            }
+
+        except Exception as e:
+
+            db.session.rollback()
+
+            return False, str(e)
+
+    # ==================================================
+    # Transaction History
+    # ==================================================
+
+    @staticmethod
+    def get_transaction_history(user_id):
+
+        try:
+
+            transactions = (
+                Transaction.query
+                .join(BankAccount)
+                .filter(
+                    BankAccount.user_id == user_id
+                )
+                .order_by(
+                    Transaction.created_at.desc()
+                )
+                .all()
+            )
+
+            history = []
+
+            for transaction in transactions:
+
+                history.append({
+
+                    "id":
+                        str(transaction.id),
+
+                    "reference":
+                        transaction.transaction_reference,
+
+                    "receiver_name":
+                        transaction.receiver_name,
+
+                    "receiver_bank":
+                        transaction.receiver_bank,
+
+                    "amount":
+                        float(transaction.amount),
+
+                    "status":
+                        transaction.transaction_status.value,
+
+                    "transaction_type":
+                        transaction.transaction_type.value,
+
+                    "source":
+                        transaction.transaction_source.value,
+
+                    "risk_score":
+                        transaction.risk_score,
+
+                    "fraud_probability":
+                        transaction.fraud_probability,
+
+                    "fraud_status":
+                        transaction.fraud_status,
+
+                    "created_at":
+                        transaction.created_at.isoformat()
+
+                })
+
+            return True, history
+
+        except Exception as e:
+
+            return False, str(e)
+
+    # ==================================================
+    # Transaction Details
+    # ==================================================
+
+    @staticmethod
+    def get_transaction(user_id, transaction_id):
+
+        try:
+
+            transaction = (
+                Transaction.query
+                .join(BankAccount)
+                .filter(
+                    Transaction.id == transaction_id,
+                    BankAccount.user_id == user_id
+                )
+                .first()
+            )
+
+            if not transaction:
+                return False, "Transaction not found."
+
+            return True, {
+
+                "id":
+                    str(transaction.id),
+
+                "reference":
+                    transaction.transaction_reference,
+
+                "receiver_name":
+                    transaction.receiver_name,
+
+                "receiver_account_number":
+                    transaction.receiver_account_number,
+
+                "receiver_bank":
+                    transaction.receiver_bank,
+
+                "receiver_ifsc":
+                    transaction.receiver_ifsc,
+
+                "amount":
+                    float(transaction.amount),
+
+                "remarks":
+                    transaction.remarks,
+
+                "balance_before":
+                    float(transaction.available_balance_before),
+
+                "balance_after":
+                    float(transaction.available_balance_after),
+
+                "status":
+                    transaction.transaction_status.value,
+
+                "transaction_type":
+                    transaction.transaction_type.value,
+
+                "source":
+                    transaction.transaction_source.value,
+
+                "ai_reviewed":
+                    transaction.ai_reviewed,
+
+                "risk_score":
+                    transaction.risk_score,
+
+                "fraud_probability":
+                    transaction.fraud_probability,
+
+                "fraud_status":
+                    transaction.fraud_status,
+
+                "ai_explanation":
+                    transaction.ai_explanation,
+
+                "created_at":
+                    transaction.created_at.isoformat()
+
+            }
+
+        except Exception as e:
+
+            return False, str(e)

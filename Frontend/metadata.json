@@ -1,0 +1,8 @@
+{
+  "name": "AI Banking & Transaction Intelligence System",
+  "description": "An enterprise AI-powered banking platform with transaction intelligence, credit score forecasting, loan recommendation engine, and real-time fraud monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
