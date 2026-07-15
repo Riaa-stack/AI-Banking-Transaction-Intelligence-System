@@ -53,7 +53,7 @@ api.interceptors.request.use((config) => {
 export const apiService = {
   // Auth operations
   login: async (email, password, role) => {
-
+    
     const response = await api.post(
         "/auth/login",
         {
@@ -107,6 +107,19 @@ export const apiService = {
 
 },
   addAccount: async (account) => {
+    console.log("============= PAYLOAD =============");
+    console.log(account);
+    console.log({
+        bank_name: account.bankName,
+        account_holder_name: account.accountHolderName,
+        account_number: account.accountNumber,
+        ifsc_code: account.ifscCode,
+        branch_name: account.branchName,
+        account_type: account.accountType,
+        current_balance: Number(account.balance),
+        is_primary: account.isPrimary
+    });
+    console.log("===================================");
 
     const response = await api.post(
 
@@ -157,8 +170,29 @@ export const apiService = {
   sendMoney: async (data) => {
 
     const response = await api.post(
+
         "/transactions/send-money",
-        data
+
+        {
+
+            sender_account_id: data.sender_account_id,
+
+            receiver_name: data.receiver_name,
+
+            receiver_account_number: data.receiver_account_number,
+
+            receiver_bank: data.receiver_bank,
+
+            receiver_ifsc: data.receiver_ifsc,
+
+            amount: Number(data.amount),
+
+            remarks: data.remarks,
+
+            transaction_source: data.transaction_source
+
+        }
+
     );
 
     return response.data;
@@ -166,10 +200,15 @@ export const apiService = {
 },
 
   // Bank Statements operations
-  getStatements: async (customerEmail) => {
-    const response = await api.get('/statements', { params: { email: customerEmail } });
+ getStatements: async () => {
+
+    const response = await api.get(
+        "/statements/all"
+    );
+
     return response.data;
-  },
+
+},
 
  uploadStatement: async (formData) => {
 

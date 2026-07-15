@@ -2,7 +2,11 @@ from flask_jwt_extended import create_access_token
 
 from app.extensions import db, bcrypt
 from app.models.user import User, UserRole
-
+from app.models.bank_account import (
+    BankAccount,
+    AccountType,
+    AccountStatus
+)
 
 class AuthService:
 
@@ -64,7 +68,37 @@ class AuthService:
 
             )
 
+            # Save customer first
             db.session.add(customer)
+            db.session.flush()
+
+            # Create primary bank account
+            bank_account = BankAccount(
+
+                user_id=customer.id,
+
+                bank_name=data["bank_name"],
+
+                account_holder_name=data["account_holder_name"],
+
+                account_number=data["account_number"],
+
+                ifsc_code=data["ifsc_code"],
+
+                branch_name=data["branch_name"],
+
+                account_type=AccountType(data["account_type"]),
+
+                current_balance=data["current_balance"],
+
+                is_primary=True,
+
+                account_status=AccountStatus.ACTIVE
+
+            )
+
+            db.session.add(bank_account)
+
             db.session.commit()
 
             return True, customer

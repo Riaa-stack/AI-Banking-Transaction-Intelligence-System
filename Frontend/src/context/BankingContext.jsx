@@ -77,13 +77,19 @@ export const BankingProvider = ({ children }) => {
           const dashboardRes = await apiService.getCustomerDashboard();
           console.log("Dashboard:", dashboardRes);
 
+          const statementsRes = await apiService.getStatements();
+          console.log("============== STATEMENTS ==============");
+          console.log(statementsRes);
+          console.log(statementsRes.data);
+          console.log("========================================");
+
           setBankAccounts(accountsRes?.data || []);
 
           setTransactions(transactionsRes?.data || []);
 
           setCustomers(dashboardRes?.data);
 
-          setStatements([]);
+          setStatements(statementsRes?.data || []);
 
           setLoans([]);
 
@@ -321,8 +327,7 @@ export const BankingProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiService.addAccount({ ...accountData, customerEmail: currentUser?.email });
-      await loadData();
+      const res = await apiService.addAccount(accountData);      await loadData();
       return res;
     } catch (err) {
       const errMsg = err.response?.data?.message || err.message || "Failed to link bank account.";
@@ -351,39 +356,72 @@ export const BankingProvider = ({ children }) => {
   };
 
   // Outbound transfer
-  const sendMoney = async (formData) => {
+  const sendMoney = async (transactionData) => {
+
     setLoading(true);
+
     setError(null);
+
     try {
-      const res = await apiService.sendMoney(formData);
-      await loadData();
-      return res;
+
+        const response = await apiService.sendMoney(
+            transactionData
+        );
+
+        await loadData();
+
+        return response;
+
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || "Failed to process transfer.";
-      setError(errMsg);
-      return { success: false, message: errMsg };
+
+        const errorMessage =
+            err.response?.data?.message ||
+            err.message ||
+            "Money transfer failed.";
+
+        setError(errorMessage);
+
+        throw new Error(errorMessage);
+
     } finally {
-      setLoading(false);
+
+        setLoading(false);
+
     }
-  };
+
+};
 
   // Upload bank statements (OCR)
-  const uploadStatement = async (file) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await apiService.uploadStatement(formData);
-      await loadData();
-      return res;
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || "Failed to upload bank statement.";
-      setError(errMsg);
-      throw new Error(errMsg);
-    } finally {
-      setLoading(false);
-    }
+  const uploadStatement = async (formData) => {
+
+      setLoading(true);
+      setError(null);
+
+      try {
+
+          const res = await apiService.uploadStatement(formData);
+
+          await loadData();
+
+          return res;
+
+      } catch (err) {
+
+          const errMsg =
+              err.response?.data?.message ||
+              err.message ||
+              "Failed to upload bank statement.";
+
+          setError(errMsg);
+
+          throw new Error(errMsg);
+
+      } finally {
+
+          setLoading(false);
+
+      }
+
   };
 
   // const updateStatementStatus = async (id, status) => {

@@ -262,7 +262,6 @@ if (signupRole === "customer") {
 
 
     // Register
-    // Register
 const signupData = {
 
     full_name: personalData.fullName,
@@ -279,7 +278,22 @@ const signupData = {
 
     password: personalData.password,
 
-    confirm_password: personalData.confirmPassword
+    confirm_password: personalData.confirmPassword,
+
+    // Primary Bank Account
+    bank_name: linkedAccounts[0].bankName,
+
+    account_holder_name: linkedAccounts[0].accountHolderName,
+
+    account_number: linkedAccounts[0].accountNumber,
+
+    ifsc_code: linkedAccounts[0].ifscCode,
+
+    branch_name: linkedAccounts[0].branchName,
+
+    account_type: linkedAccounts[0].accountType,
+
+    current_balance: Number(linkedAccounts[0].balance)
 
 };
 

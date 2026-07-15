@@ -16,9 +16,17 @@ class AccountController:
     @jwt_required()
     def add_account():
 
+        print("===================================")
+        print("ADD ACCOUNT HIT")
+        print("JWT Identity:", get_jwt_identity())
+        print("Headers:", request.headers)
+        print("===================================")
+
         user = User.query.get(get_jwt_identity())
 
         json_data = request.get_json()
+
+        print("JSON DATA:", json_data)
 
         errors = account_schema.validate(json_data)
 

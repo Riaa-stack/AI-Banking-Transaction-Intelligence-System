@@ -13,20 +13,17 @@ from app.utils.response import (
 )
 
 
-upload_statement_schema = UploadStatementSchema()
-
-
 class StatementController:
-
-    # ==========================================
-    # Upload Statement
-    # ==========================================
 
     @staticmethod
     @jwt_required()
     def upload_statement():
 
         try:
+
+            # =====================================
+            # Check File
+            # =====================================
 
             if "statement" not in request.files:
 
@@ -37,18 +34,30 @@ class StatementController:
 
             uploaded_file = request.files["statement"]
 
-            data = upload_statement_schema.load(
+            # =====================================
+            # Validate Form Data
+            # =====================================
+
+            schema = UploadStatementSchema()
+
+            data = schema.load(
                 request.form.to_dict()
             )
 
+            # =====================================
+            # Logged-in User
+            # =====================================
+
             user_id = get_jwt_identity()
 
-            success, result = (
-                StatementService.upload_statement(
-                    user_id,
-                    data,
-                    uploaded_file
-                )
+            # =====================================
+            # Upload Statement
+            # =====================================
+
+            success, result = StatementService.upload_statement(
+                user_id=user_id,
+                data=data,
+                uploaded_file=uploaded_file
             )
 
             if not success:
@@ -73,7 +82,83 @@ class StatementController:
 
         except Exception as e:
 
+            print("UPLOAD ERROR :", e)
+
             return error_response(
                 str(e),
                 500
+            )
+            # ==========================================
+    # Get Customer Statements
+    # ==========================================
+
+    @staticmethod
+    @jwt_required()
+    def get_statements():
+
+        try:
+
+            user_id = get_jwt_identity()
+
+            success, result = StatementService.get_statements(
+                user_id
+            )
+
+            if not success:
+
+                return error_response(
+                    result,
+                    400
+                )
+
+            statements = []
+
+            for statement in result:
+
+                statements.append({
+
+                    "id": str(statement.id),
+
+                    "account_id": str(statement.account_id),
+
+                    "statement_name": statement.statement_name,
+
+                    "original_file_name": statement.original_file_name,
+
+                    "statement_month": statement.statement_month,
+
+                    "statement_year": statement.statement_year,
+
+                    "processing_status": statement.processing_status.value,
+
+                    "ocr_status": statement.ocr_status,
+
+                    "ocr_confidence": statement.ocr_confidence,
+
+                    "total_transactions": statement.total_transactions,
+
+                    "ai_summary": statement.ai_summary,
+
+                    "is_ai_processed": statement.is_ai_processed,
+
+                    "created_at": str(statement.created_at)
+
+                })
+
+            return success_response(
+
+                "Statements fetched successfully.",
+
+                statements
+
+            )
+
+        except Exception as e:
+
+            return error_response(
+
+                str(e),
+
+                500
+
             )

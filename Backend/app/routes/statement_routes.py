@@ -16,3 +16,14 @@ statement_bp = Blueprint(
 )
 def upload_statement():
     return StatementController.upload_statement()
+
+
+# ==========================================
+# Get Uploaded Statements
+# ==========================================
+@statement_bp.route(
+    "/all",
+    methods=["GET"]
+)
+def get_statements():
+    return StatementController.get_statements()

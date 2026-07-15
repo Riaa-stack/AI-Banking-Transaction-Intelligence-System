@@ -207,3 +207,25 @@ class StatementService:
             db.session.rollback()
 
             return False, str(e)
+            # ==========================================
+    # Get Customer Statements
+    # ==========================================
+
+    @staticmethod
+    def get_statements(user_id):
+
+        try:
+
+            statements = (
+                UploadedStatement.query
+                .join(BankAccount)
+                .filter(BankAccount.user_id == user_id)
+                .order_by(UploadedStatement.created_at.desc())
+                .all()
+            )
+
+            return True, statements
+
+        except Exception as e:
+
+            return False, str(e)
