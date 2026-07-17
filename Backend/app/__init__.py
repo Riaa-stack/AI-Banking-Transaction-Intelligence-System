@@ -19,6 +19,8 @@ from app.routes.onboarding_routes import onboarding_bp
 from app.routes.customer_routes import customer_bp
 from app.routes.transaction_routes import transaction_bp
 from app.routes.statement_routes import statement_bp
+from app.routes.chatbot_routes import chatbot_bp
+from app.routes.credit_routes import credit_bp
 
 
 def create_app():
@@ -128,6 +130,16 @@ def create_app():
     app.register_blueprint(
         statement_bp,
         url_prefix="/api/v1/statements"
+    )
+
+    app.register_blueprint(
+        chatbot_bp,
+        url_prefix="/api/v1/chatbot"
+    )
+
+    app.register_blueprint(
+        credit_bp,
+        url_prefix="/api/v1/credit"
     )
 
     # ============================

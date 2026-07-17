@@ -447,17 +447,14 @@ export const BankingProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiService.sendChatMsg(messageText, {
-        bankAccounts,
-        transactions,
-        loans
-      });
-      const aiMsg = { sender: "ai", text: response.text, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+      const response = await apiService.chatWithAI(messageText);
+      const aiText = response?.data?.response || response?.response || response?.message || "AI response unavailable.";
+      const aiMsg = { sender: "assistant", text: aiText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
       setChatHistory(prev => [...prev, aiMsg]);
     } catch (err) {
       const errMsg = err.response?.data?.message || err.message || "AI response unavailable.";
       const errorMsg = {
-        sender: "ai",
+        sender: "assistant",
         text: `Error: ${errMsg}. Please verify secure API connectivity.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isError: true
@@ -562,6 +559,7 @@ export const BankingProvider = ({ children }) => {
       sendMoney,
       uploadStatement,
       // updateStatementStatus,
+      chatHistory,
       sendChatMessage,
       // requestLoanApplication,
       // updateLoanStatus,

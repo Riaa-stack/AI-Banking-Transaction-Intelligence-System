@@ -199,6 +199,16 @@ export const apiService = {
 
 },
 
+  predictCreditScore: async () => {
+
+    const response = await api.get(
+        "/credit/predict"
+    );
+
+    return response.data;
+
+},
+
   // Bank Statements operations
  getStatements: async () => {
 
@@ -262,6 +272,17 @@ export const apiService = {
   },
 
   // AI Conversational Chat
+  chatWithAI: async (message) => {
+    const response = await api.post(
+      "/chatbot/chat",
+      {
+        message
+      }
+    );
+
+    return response.data;
+  },
+
   sendChatMsg: async (messageText, contextData = {}) => {
     const response = await api.post('/ai/chat', { message: messageText, context: contextData });
     return response.data; // Expected { text: "AI response string" }

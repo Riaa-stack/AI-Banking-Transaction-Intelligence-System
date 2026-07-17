@@ -4,6 +4,10 @@ from app.extensions import db
 from app.models.base_model import BaseModel
 
 
+# ==========================================================
+# Credit Risk Category
+# ==========================================================
+
 class RiskCategory(Enum):
     POOR = "Poor"
     FAIR = "Fair"
@@ -12,15 +16,28 @@ class RiskCategory(Enum):
     EXCELLENT = "Excellent"
 
 
+# ==========================================================
+# Credit Score Model
+# ==========================================================
+
 class CreditScore(BaseModel):
 
     __tablename__ = "credit_scores"
 
+    # ======================================================
+    # Customer
+    # ======================================================
+
     customer_id = db.Column(
         db.UUID(as_uuid=True),
         db.ForeignKey("users.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
+
+    # ======================================================
+    # AI Prediction
+    # ======================================================
 
     credit_score = db.Column(
         db.Integer,
@@ -32,6 +49,20 @@ class CreditScore(BaseModel):
         nullable=False
     )
 
+    confidence_score = db.Column(
+        db.Float,
+        default=0.0
+    )
+
+    financial_health = db.Column(
+        db.String(50),
+        default="Unknown"
+    )
+
+    # ======================================================
+    # AI Insights
+    # ======================================================
+
     ai_explanation = db.Column(
         db.Text,
         nullable=False
@@ -42,10 +73,23 @@ class CreditScore(BaseModel):
         nullable=False
     )
 
+    # ======================================================
+    # Prediction Information
+    # ======================================================
+
     prediction_version = db.Column(
         db.String(20),
         default="v1.0"
     )
+
+    is_latest = db.Column(
+        db.Boolean,
+        default=True
+    )
+
+    # ======================================================
+    # Relationship
+    # ======================================================
 
     customer = db.relationship(
         "User",
@@ -56,5 +100,14 @@ class CreditScore(BaseModel):
         )
     )
 
+    # ======================================================
+    # String Representation
+    # ======================================================
+
     def __repr__(self):
-        return f"<CreditScore {self.credit_score}>"
+
+        return (
+            f"<CreditScore "
+            f"{self.credit_score} "
+            f"{self.risk_category.value}>"
+        )

@@ -19,12 +19,12 @@ import {
   CustomerStatements 
 } from './pages/CustomerOperations';
 import { 
-  CustomerAssistant, 
   CustomerCreditScore, 
   CustomerLoans, 
   CustomerMonitoring, 
   CustomerFraud 
 } from './pages/CustomerIntelligence';
+import AIBankingAssistant from './components/customer/AIBankingAssistant';
 import { 
   CustomerAnalytics, 
   CustomerNotificationsPage, 
@@ -118,7 +118,7 @@ function MainAppRoutes() {
         <Route path="bank-accounts" element={<CustomerAccounts />} />
         <Route path="transactions" element={<CustomerTransactions />} />
         <Route path="statements" element={<CustomerStatements />} />
-        <Route path="assistant" element={<CustomerAssistant />} />
+        <Route path="assistant" element={<AIBankingAssistant />} />
         <Route path="credit-score" element={<CustomerCreditScore />} />
         <Route path="loans" element={<CustomerLoans />} />
         <Route path="monitoring" element={<CustomerMonitoring />} />
