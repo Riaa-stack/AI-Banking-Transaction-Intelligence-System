@@ -154,8 +154,8 @@ class TransactionService:
                 transaction.ai_reviewed = True
 
                 transaction.risk_score = ai_result[
-                    "monitoring"
-                ]["risk_score"]
+                    "fraud"
+                ]["final_score"]
 
                 transaction.fraud_probability = ai_result[
                     "fraud"
@@ -165,8 +165,10 @@ class TransactionService:
                     "fraud"
                 ]["fraud_status"]
 
-                transaction.ai_explanation = ai_result.get(
-                    "explanation",
+                transaction.ai_explanation = ai_result[
+                    "fraud"
+                ].get(
+                    "ai_explanation",
                     "Transaction analyzed successfully."
                 )
 

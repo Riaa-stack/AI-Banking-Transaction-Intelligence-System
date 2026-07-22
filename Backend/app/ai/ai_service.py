@@ -31,10 +31,7 @@ class AIService:
 
             "fraud": fraud,
 
-            "explanation": (
-                f"Risk Level: {monitoring['status']}, "
-                f"Fraud Status: {fraud['fraud_status']}"
-            )
+            "explanation": fraud.get("ai_explanation")
 
         }
 

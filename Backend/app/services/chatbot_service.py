@@ -3,109 +3,63 @@ from app.extensions import db
 from app.models.bank_account import BankAccount
 from app.models.transaction import Transaction
 from app.models.credit_score import CreditScore
+from app.models.user import User
+from app.models.uploaded_statement import UploadedStatement
 
 from app.ai.credit_score_prediction import CreditScorePrediction
+from app.ai.ai_banking_assistant import AIBankingAssistant
 
 
-class CreditService:
+
+
+
+class ChatbotService:
 
     @staticmethod
-    def predict_credit_score(user_id):
+    def chat(user_id, question):
 
-        # ==========================================
-        # Get Accounts
-        # ==========================================
+        if not user_id:
+            raise ValueError("User ID is required.")
+
+        if not question:
+            raise ValueError("Question is required.")
+
+        customer = User.query.get(user_id)
+
+        if not customer:
+            raise ValueError("User not found.")
 
         accounts = BankAccount.query.filter_by(
             user_id=user_id
         ).all()
 
-        if not accounts:
+        transactions = []
 
-            raise Exception(
-                "No bank accounts found."
-            )
+        if accounts:
+            account_ids = [
+                account.id
+                for account in accounts
+            ]
 
-        account_ids = [
+            transactions = Transaction.query.filter(
+                Transaction.sender_account_id.in_(account_ids)
+            ).all()
 
-            account.id
-
-            for account in accounts
-
-        ]
-
-        # ==========================================
-        # Get Transactions
-        # ==========================================
-
-        transactions = Transaction.query.filter(
-
-            Transaction.sender_account_id.in_(account_ids)
-
+        statements = UploadedStatement.query.join(
+            BankAccount
+        ).filter(
+            BankAccount.user_id == user_id
         ).all()
 
-        # ==========================================
-        # Predict Score
-        # ==========================================
-
-        result = CreditScorePrediction.predict(
-
+        return AIBankingAssistant.ask_ai(
+            user_id,
+            customer,
+            question,
             accounts,
-
-            transactions
-
+            transactions,
+            statements=statements
         )
 
-        # ==========================================
-        # Remove Previous Latest Record
-        # ==========================================
-
-        CreditScore.query.filter_by(
-
-            customer_id=user_id,
-
-            is_latest=True
-
-        ).update(
-
-            {
-
-                "is_latest": False
-
-            }
-
-        )
-
-        # ==========================================
-        # Save Prediction
-        # ==========================================
-
-        credit = CreditScore(
-
-            customer_id=user_id,
-
-            credit_score=result["credit_score"],
-
-            risk_category=result["risk_category"],
-
-            confidence_score=result["confidence_score"],
-
-            financial_health=result["financial_health"],
-
-            ai_explanation=result["ai_explanation"],
-
-            recommendations="\n".join(
-
-                result["recommendations"]
-
-            ),
-
-            is_latest=True
-
-        )
-
-        db.session.add(credit)
-
-        db.session.commit()
-
-        return result
+    @staticmethod
+    def health():
+        return AIBankingAssistant.health()

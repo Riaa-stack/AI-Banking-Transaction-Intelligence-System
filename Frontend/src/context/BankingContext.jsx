@@ -544,7 +544,7 @@ export const BankingProvider = ({ children }) => {
       statements,
       loans,
       notifications,
-      chatHistory,
+      // chatHistory,
       loading,
       error,
       apiConnected,

@@ -20,6 +20,8 @@ class Config:
 
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")   # <-- ADD THIS
+
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER")
 
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 52428800))

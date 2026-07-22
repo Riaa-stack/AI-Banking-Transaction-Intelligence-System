@@ -585,6 +585,14 @@ clearly mention that.
     # ==========================================================
 
     @classmethod
+    def health(cls):
+
+        return {
+            "status": "ok",
+            "model": MODEL_NAME
+        }
+
+    @classmethod
     def reset_chat(
 
         cls,
@@ -606,206 +614,205 @@ clearly mention that.
             "Conversation cleared."
 
         }
-        # ==========================================================
-        # Get Total Balance
-        # ==========================================================
 
-        @staticmethod
-        def get_total_balance(accounts):
+    # ==========================================================
+    # Get Total Balance
+    # ==========================================================
 
-            total = 0
+    @staticmethod
+    def get_total_balance(accounts):
 
-            for account in accounts:
+        total = 0
 
-                total += float(account.current_balance)
+        for account in accounts:
 
-            return total
-        # ==========================================================
-        # Calculate Expenses
-        # ==========================================================
+            total += float(account.current_balance)
 
-        @staticmethod
-        def calculate_expenses(transactions):
+        return total
 
-            total = 0
+    # ==========================================================
+    # Calculate Expenses
+    # ==========================================================
 
-            for tx in transactions:
+    @staticmethod
+    def calculate_expenses(transactions):
 
-                if tx.transaction_type == "DEBIT":
+        total = 0
 
-                    total += float(tx.amount)
+        for tx in transactions:
 
-            return total
-        
-        # ==========================================================
-        # Calculate Income
-        # ==========================================================
+            if tx.transaction_type == "DEBIT":
 
-        @staticmethod
-        def calculate_income(transactions):
+                total += float(tx.amount)
 
-            total = 0
+        return total
 
-            for tx in transactions:
+    # ==========================================================
+    # Calculate Income
+    # ==========================================================
 
-                if tx.transaction_type == "CREDIT":
+    @staticmethod
+    def calculate_income(transactions):
 
-                    total += float(tx.amount)
+        total = 0
 
-            return total
-        
-        # ==========================================================
-        # Financial Health
-        # ==========================================================
+        for tx in transactions:
 
-        @staticmethod
-        def financial_health(
+            if tx.transaction_type == "CREDIT":
 
-            balance,
+                total += float(tx.amount)
 
-            income,
+        return total
 
-            expenses
+    # ==========================================================
+    # Financial Health
+    # ==========================================================
 
-        ):
+    @staticmethod
+    def financial_health(
 
-            if income == 0:
+        balance,
 
-                return "Insufficient data"
+        income,
 
-            savings = income - expenses
+        expenses
 
-            ratio = savings / income
+    ):
 
-            if ratio >= 0.40:
+        if income == 0:
 
-                return "Excellent"
+            return "Insufficient data"
 
-            elif ratio >= 0.25:
+        savings = income - expenses
 
-                return "Good"
+        ratio = savings / income
 
-            elif ratio >= 0.10:
+        if ratio >= 0.40:
 
-                return "Average"
+            return "Excellent"
 
-            return "Needs Improvement"
-                # ==========================================================
-        # Quick Banking Response
-        # ==========================================================
+        elif ratio >= 0.25:
 
-        @classmethod
-        def quick_response(
+            return "Good"
 
-            cls,
+        elif ratio >= 0.10:
 
-            question,
+            return "Average"
 
-            accounts,
+        return "Needs Improvement"
 
-            transactions
+    # ==========================================================
+    # Quick Banking Response
+    # ==========================================================
 
-        ):
+    @classmethod
+    def quick_response(
 
-            q = question.lower()
+        cls,
 
-            # ---------------- Balance ----------------
+        question,
 
-            if "balance" in q:
+        accounts,
 
-                balance = cls.get_total_balance(accounts)
+        transactions
 
-                return f"""
-        Your total available balance is ₹{balance:,.2f}.
+    ):
 
-        This amount is calculated across all your linked bank accounts.
-        """
+        q = question.lower()
 
-            # ---------------- Expense ----------------
+        # ---------------- Balance ----------------
 
-            if "expense" in q or "spent" in q:
+        if "balance" in q:
 
-                expense = cls.calculate_expenses(transactions)
-
-                return f"""
-        Your total expenses are ₹{expense:,.2f}.
-
-        You can ask me to analyse your spending in detail.
-        """
-
-            # ---------------- Income ----------------
-
-            if "income" in q:
-
-                income = cls.calculate_income(transactions)
-
-                return f"""
-        Your total income is ₹{income:,.2f}.
-        """
-
-            return None
-
-        # ==========================================================
-        # Financial Report
-        # ==========================================================
-
-        @classmethod
-        def financial_report(cls, accounts, transactions):
-
-            income = cls.calculate_income(transactions)
-            expense = cls.calculate_expenses(transactions)
             balance = cls.get_total_balance(accounts)
 
-            return {
-                "balance": balance,
-                "income": income,
-                "expenses": expense,
-                "savings": income - expense
+            return f"""
+Your total available balance is ₹{balance:,.2f}.
+
+This amount is calculated across all your linked bank accounts.
+"""
+
+        # ---------------- Expense ----------------
+
+        if "expense" in q or "spent" in q:
+
+            expense = cls.calculate_expenses(transactions)
+
+            return f"""
+Your total expenses are ₹{expense:,.2f}.
+
+You can ask me to analyse your spending in detail.
+"""
+
+        # ---------------- Income ----------------
+
+        if "income" in q:
+
+            income = cls.calculate_income(transactions)
+
+            return f"""
+Your total income is ₹{income:,.2f}.
+"""
+
+        return None
+
+    # ==========================================================
+    # Financial Report
+    # ==========================================================
+
+    @classmethod
+    def financial_report(cls, accounts, transactions):
+
+        income = cls.calculate_income(transactions)
+        expense = cls.calculate_expenses(transactions)
+        balance = cls.get_total_balance(accounts)
+
+        return {
+            "balance": balance,
+            "income": income,
+            "expenses": expense,
+            "savings": income - expense
+        }
+
+    # ==========================================================
+    # Loan Summary
+    # ==========================================================
+
+    @staticmethod
+    def loan_summary(loan_result):
+
+        return loan_result if loan_result else {}
+
+    # ==========================================================
+    # Credit Summary
+    # ==========================================================
+
+    @staticmethod
+    def credit_summary(credit_result):
+
+        return credit_result if credit_result else {}
+
+    # ==========================================================
+    # Fraud Summary
+    # ==========================================================
+
+    @staticmethod
+    def fraud_summary(fraud_result):
+
+        return fraud_result if fraud_result else {}
+
+    # ==========================================================
+    # OCR Summary
+    # ==========================================================
+
+    @staticmethod
+    def statement_summary(statements):
+
+        return [
+            {
+                "month": s.statement_month,
+                "year": s.statement_year,
+                "summary": s.ai_summary
             }
-
-
-        # ==========================================================
-        # Loan Summary
-        # ==========================================================
-
-        @staticmethod
-        def loan_summary(loan_result):
-
-            return loan_result if loan_result else {}
-
-
-        # ==========================================================
-        # Credit Summary
-        # ==========================================================
-
-        @staticmethod
-        def credit_summary(credit_result):
-
-            return credit_result if credit_result else {}
-
-
-        # ==========================================================
-        # Fraud Summary
-        # ==========================================================
-
-        @staticmethod
-        def fraud_summary(fraud_result):
-
-            return fraud_result if fraud_result else {}
-
-
-        # ==========================================================
-        # OCR Summary
-        # ==========================================================
-
-        @staticmethod
-        def statement_summary(statements):
-
-            return [
-                {
-                    "month": s.statement_month,
-                    "year": s.statement_year,
-                    "summary": s.ai_summary
-                }
-                for s in statements
-            ] if statements else []
+            for s in statements
+        ] if statements else []
