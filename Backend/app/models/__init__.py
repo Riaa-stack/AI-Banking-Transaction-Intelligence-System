@@ -7,3 +7,4 @@ from app.models.credit_score import CreditScore
 from app.models.loan_recommendation import LoanRecommendation
 from app.models.chat_history import ChatHistory
 from app.models.notification import Notification
+from app.models.security_incident import SecurityIncident

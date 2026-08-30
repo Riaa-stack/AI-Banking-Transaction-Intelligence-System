@@ -49,10 +49,7 @@ class UploadedStatement(BaseModel):
         nullable=False
     )
 
-    file_type = db.Column(
-        db.String(20),
-        default="pdf"
-    )
+
 
     file_size = db.Column(
         db.BigInteger
@@ -106,27 +103,14 @@ class UploadedStatement(BaseModel):
         default="Pending"
     )
 
-    ocr_confidence = db.Column(
-        db.Float,
-        default=0.0
-    )
 
-    extracted_text = db.Column(
-        db.Text
-    )
-
-    processing_error = db.Column(
-        db.Text
-    )
 
     is_ai_processed = db.Column(
         db.Boolean,
         default=False
     )
 
-    ai_processed_at = db.Column(
-        db.DateTime
-    )
+
 
     # ==========================================
     # Extracted Information

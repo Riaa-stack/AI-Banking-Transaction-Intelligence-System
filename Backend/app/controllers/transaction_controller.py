@@ -46,6 +46,13 @@ class TransactionController:
             )
 
             if not success:
+                if isinstance(result, str) and result.startswith("ACCOUNT_SECURITY_LOCKED"):
+                    clean_msg = result.replace("ACCOUNT_SECURITY_LOCKED: ", "")
+                    return error_response(
+                        clean_msg,
+                        403,
+                        {"error_code": "ACCOUNT_SECURITY_LOCKED"}
+                    )
                 return error_response(
                     result,
                     400

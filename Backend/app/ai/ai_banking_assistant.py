@@ -4,7 +4,7 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 
-import google.generativeai as genai
+from google import genai
 
 from app.extensions import db
 
@@ -27,15 +27,11 @@ MODEL_NAME = "gemini-2.5-flash"
 
 if GEMINI_API_KEY:
 
-    genai.configure(api_key=GEMINI_API_KEY)
-
-    gemini_model = genai.GenerativeModel(
-        MODEL_NAME
-    )
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
 else:
 
-    gemini_model = None
+    client = None
 
 
 # ============================================================
@@ -280,7 +276,7 @@ class AIBankingAssistant:
 
             )
 
-            if tx.transaction_type.value == "CREDIT":
+            if tx.transaction_type.value == "Credit":
 
                 income += amount
 
@@ -554,7 +550,7 @@ clearly mention that.
 
     ):
 
-        if gemini_model is None:
+        if client is None:
 
             return (
 
@@ -564,10 +560,9 @@ clearly mention that.
 
         try:
 
-            response = gemini_model.generate_content(
-
-                prompt
-
+            response = client.models.generate_content(
+                model=MODEL_NAME,
+                contents=prompt
             )
 
             if response.text:
@@ -641,7 +636,7 @@ clearly mention that.
 
         for tx in transactions:
 
-            if tx.transaction_type == "DEBIT":
+            if tx.transaction_type == "Debit":
 
                 total += float(tx.amount)
 
@@ -658,7 +653,7 @@ clearly mention that.
 
         for tx in transactions:
 
-            if tx.transaction_type == "CREDIT":
+            if tx.transaction_type == "Credit":
 
                 total += float(tx.amount)
 

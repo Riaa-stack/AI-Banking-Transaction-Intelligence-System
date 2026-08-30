@@ -58,18 +58,21 @@ class AccountService:
             return False, str(e)
 
     @staticmethod
-    def get_all_accounts(user):
+    def get_all_accounts(user_or_id):
 
         try:
+            user_id = user_or_id.id if hasattr(user_or_id, 'id') else user_or_id
 
             accounts = BankAccount.query.filter_by(
-                user_id=user.id
+                user_id=user_id
             ).all()
 
             return True, accounts
 
         except Exception as e:
-
+            import traceback
+            print("=== Error in AccountService.get_all_accounts ===")
+            traceback.print_exc()
             return False, str(e)
 
     @staticmethod

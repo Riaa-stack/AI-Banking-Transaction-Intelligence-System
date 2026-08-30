@@ -47,9 +47,13 @@ class AuthController:
                     400
                 )
 
+            loaded_data = customer_signup_schema.load(
+                json_data
+            )
+
             success, result = (
                 AuthService.register_customer(
-                    json_data
+                    loaded_data
                 )
             )
 
@@ -107,9 +111,13 @@ class AuthController:
                     400
                 )
 
+            loaded_data = employee_signup_schema.load(
+                json_data
+            )
+
             success, result = (
                 AuthService.register_employee(
-                    json_data
+                    loaded_data
                 )
             )
 

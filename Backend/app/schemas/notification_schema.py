@@ -7,7 +7,7 @@ from marshmallow import (
 
 class CreateNotificationSchema(Schema):
 
-    user_id = fields.UUID(
+    customer_id = fields.UUID(
         required=True
     )
 
@@ -39,15 +39,4 @@ class CreateNotificationSchema(Schema):
             ]
         )
     )
-
-    priority = fields.String(
-        required=False,
-        load_default="Low",
-        validate=validate.OneOf(
-            [
-                "Low",
-                "Medium",
-                "High"
-            ]
-        )
-    )
+

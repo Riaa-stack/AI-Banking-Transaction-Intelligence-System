@@ -31,6 +31,7 @@ import {
   CustomerProfile, 
   CustomerSettings 
 } from './pages/CustomerSecondary';
+import SecurityLockdown from './pages/SecurityLockdown';
 
 // Employee Pages
 import EmployeeDashboard from './pages/EmployeeDashboard';
@@ -127,6 +128,7 @@ function MainAppRoutes() {
         <Route path="notifications" element={<CustomerNotificationsPage />} />
         <Route path="profile" element={<CustomerProfile />} />
         <Route path="settings" element={<CustomerSettings />} />
+        <Route path="security-lockdown" element={<SecurityLockdown />} />
       </Route>
 
       {/* Employee Routes inside Shell */}

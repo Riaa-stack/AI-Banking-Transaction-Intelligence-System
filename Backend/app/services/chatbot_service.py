@@ -43,13 +43,13 @@ class ChatbotService:
 
             transactions = Transaction.query.filter(
                 Transaction.sender_account_id.in_(account_ids)
-            ).all()
+            ).order_by(Transaction.created_at.desc()).limit(10).all()
 
         statements = UploadedStatement.query.join(
             BankAccount
         ).filter(
             BankAccount.user_id == user_id
-        ).all()
+        ).order_by(UploadedStatement.created_at.desc()).limit(3).all()
 
         return AIBankingAssistant.ask_ai(
             user_id,

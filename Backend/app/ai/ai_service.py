@@ -13,26 +13,27 @@ class AIService:
 
     @staticmethod
     def analyze_transaction(transaction, account):
+        """
+        Full transaction analysis pipeline:
+        1. TransactionMonitor builds rich context
+        2. FraudDetector runs ML + rules + LLM
+        Returns the complete result dict.
+        """
 
         monitoring = TransactionMonitor.analyze(
             transaction,
             account
         )
 
-        fraud = FraudDetector.analyze(
+        fraud_report = FraudDetector.analyze(
             transaction,
             account,
             monitoring
         )
 
         return {
-
-            "monitoring": monitoring,
-
-            "fraud": fraud,
-
-            "explanation": fraud.get("ai_explanation")
-
+            "monitoring":   monitoring,
+            "fraud":        fraud_report,
         }
 
     # =====================================================

@@ -133,8 +133,6 @@ class StatementController:
 
                     "ocr_status": statement.ocr_status,
 
-                    "ocr_confidence": statement.ocr_confidence,
-
                     "total_transactions": statement.total_transactions,
 
                     "ai_summary": statement.ai_summary,

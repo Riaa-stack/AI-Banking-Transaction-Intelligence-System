@@ -160,17 +160,7 @@ class StatementService:
 
             statement.ocr_status = "Completed"
 
-            statement.ocr_confidence = (
 
-                ocr_result["confidence"]
-
-            )
-
-            statement.extracted_text = (
-
-                ocr_result["text"]
-
-            )
 
             statement.total_transactions = (
 

@@ -15,7 +15,7 @@ credit_bp = Blueprint(
 
 @credit_bp.route(
     "/predict",
-    methods=["GET"]
+    methods=["GET", "POST"]
 )
 def predict():
 

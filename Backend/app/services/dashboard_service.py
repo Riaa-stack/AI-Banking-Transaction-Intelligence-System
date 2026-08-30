@@ -1,7 +1,7 @@
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.bank_account import BankAccount
 from app.models.transaction import Transaction
-from app.models.uploaded_statement import UploadedStatement
+from app.models.uploaded_statement import UploadedStatement, ProcessingStatus
 from app.ai.ai_service import AIService
 
 
@@ -199,145 +199,146 @@ class DashboardService:
                 "financial_health": summary
 
             }
-        
 
         except Exception as e:
 
             return False, str(e)
-        # ==========================================
-# Bank Employee Dashboard
-# ==========================================
 
-@staticmethod
-def get_employee_dashboard():
+    # ==========================================
+    # Bank Employee Dashboard
+    # ==========================================
 
-    try:
+    @staticmethod
+    def get_employee_dashboard():
 
-        total_customers = User.query.filter_by(
-            role="CUSTOMER"
-        ).count()
+        try:
 
-        total_accounts = BankAccount.query.count()
+            # Use the UserRole enum to filter, not a raw string
+            total_customers = User.query.filter_by(
+                role=UserRole.CUSTOMER
+            ).count()
 
-        total_transactions = Transaction.query.count()
+            total_accounts = BankAccount.query.count()
 
-        total_statements = UploadedStatement.query.count()
+            total_transactions = Transaction.query.count()
 
-        flagged_transactions = (
-            Transaction.query
-            .filter(
-                Transaction.fraud_status.in_(
-                    ["High Risk", "Blocked"]
+            total_statements = UploadedStatement.query.count()
+
+            flagged_transactions = (
+                Transaction.query
+                .filter(
+                    Transaction.fraud_status.in_(
+                        ["High Risk", "Blocked"]
+                    )
                 )
+                .order_by(
+                    Transaction.created_at.desc()
+                )
+                .limit(10)
+                .all()
             )
-            .order_by(
-                Transaction.created_at.desc()
+
+            pending_statements = (
+                UploadedStatement.query
+                .filter_by(
+                    processing_status=ProcessingStatus.PENDING
+                )
+                .order_by(
+                    UploadedStatement.created_at.desc()
+                )
+                .limit(10)
+                .all()
             )
-            .limit(10)
-            .all()
-        )
 
-        pending_statements = (
-            UploadedStatement.query
-            .filter_by(
-                processing_status=ProcessingStatus.PENDING
+            recent_customers = (
+                User.query
+                .filter_by(role=UserRole.CUSTOMER)
+                .order_by(
+                    User.created_at.desc()
+                )
+                .limit(10)
+                .all()
             )
-            .order_by(
-                UploadedStatement.created_at.desc()
-            )
-            .limit(10)
-            .all()
-        )
 
-        recent_customers = (
-            User.query
-            .filter_by(role="CUSTOMER")
-            .order_by(
-                User.created_at.desc()
-            )
-            .limit(10)
-            .all()
-        )
+            return True, {
 
-        return True, {
+                "statistics": {
 
-            "statistics": {
+                    "total_customers": total_customers,
 
-                "total_customers": total_customers,
+                    "total_accounts": total_accounts,
 
-                "total_accounts": total_accounts,
+                    "total_transactions": total_transactions,
 
-                "total_transactions": total_transactions,
+                    "total_statements": total_statements
 
-                "total_statements": total_statements
+                },
 
-            },
+                "customer_management": [
 
-            "customer_management": [
+                    {
 
-                {
+                        "id": str(customer.id),
 
-                    "id": str(customer.id),
+                        "name": customer.full_name,
 
-                    "name": customer.full_name,
+                        "email": customer.email
 
-                    "email": customer.email
+                    }
 
-                }
+                    for customer in recent_customers
 
-                for customer in recent_customers
+                ],
 
-            ],
+                "transaction_monitoring": [
 
-            "transaction_monitoring": [
+                    {
 
-                {
+                        "reference":
+                            transaction.transaction_reference,
 
-                    "reference":
-                        transaction.transaction_reference,
+                        "amount":
+                            float(transaction.amount),
 
-                    "amount":
-                        float(transaction.amount),
+                        "risk_score":
+                            transaction.risk_score,
 
-                    "risk_score":
-                        transaction.risk_score,
+                        "fraud_status":
+                            transaction.fraud_status,
 
-                    "fraud_status":
-                        transaction.fraud_status,
+                        "status":
+                            transaction.transaction_status.value
 
-                    "status":
-                        transaction.transaction_status.value
+                    }
 
-                }
+                    for transaction in flagged_transactions
 
-                for transaction in flagged_transactions
+                ],
 
-            ],
+                "statement_review": [
 
-            "statement_review": [
+                    {
 
-                {
+                        "id":
+                            str(statement.id),
 
-                    "id":
-                        str(statement.id),
+                        "statement":
+                            statement.statement_name,
 
-                    "statement":
-                        statement.statement_name,
+                        "status":
+                            statement.processing_status.value,
 
-                    "status":
-                        statement.processing_status.value,
+                        "transactions":
+                            statement.total_transactions
 
-                    "transactions":
-                        statement.total_transactions
+                    }
 
-                }
+                    for statement in pending_statements
 
-                for statement in pending_statements
+                ]
 
-            ]
+            }
 
-        }
+        except Exception as e:
 
-    except Exception as e:
-
-        return False, str(e)
+            return False, str(e)

@@ -374,10 +374,13 @@ export const BankingProvider = ({ children }) => {
 
     } catch (err) {
 
-        const errorMessage =
-            err.response?.data?.message ||
-            err.message ||
-            "Money transfer failed.";
+        const rawMessage = err.response?.data?.message || err.message || "Money transfer failed.";
+
+        // If message is a dict (Marshmallow validation errors), serialize it so
+        // the caller can parse and display the field-level error messages
+        const errorMessage = (rawMessage && typeof rawMessage === "object")
+            ? JSON.stringify(rawMessage)
+            : rawMessage;
 
         setError(errorMessage);
 
@@ -448,7 +451,12 @@ export const BankingProvider = ({ children }) => {
     setError(null);
     try {
       const response = await apiService.chatWithAI(messageText);
-      const aiText = response?.data?.response || response?.response || response?.message || "AI response unavailable.";
+      // Backend returns: { success: true, message: "...", data: "AI response text" }
+      const aiText = (
+        typeof response?.data === 'string'
+          ? response.data
+          : response?.data?.response || response?.message || "AI response unavailable."
+      );
       const aiMsg = { sender: "assistant", text: aiText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
       setChatHistory(prev => [...prev, aiMsg]);
     } catch (err) {

@@ -40,9 +40,8 @@ class TransactionService:
             if not sender_account:
                 return False, "Sender account not found."
 
-            # ==========================================
-            # Account Status
-            # ==========================================
+            if getattr(sender_account, "is_security_locked", False):
+                return False, "ACCOUNT_SECURITY_LOCKED: This demo account is temporarily locked because of a simulated security incident."
 
             if sender_account.account_status != AccountStatus.ACTIVE:
                 return False, "Your account is not active."
@@ -83,10 +82,10 @@ class TransactionService:
                 return False, "Insufficient account balance."
 
             balance_before = sender_account.current_balance
-            balance_after = balance_before - amount
+            balance_after  = balance_before - amount
 
             # ==========================================
-            # Update Balance
+            # Deduct Balance (staged – not yet committed)
             # ==========================================
 
             sender_account.current_balance = balance_after
@@ -101,7 +100,7 @@ class TransactionService:
             )
 
             # ==========================================
-            # Create Transaction
+            # Create Transaction Record (staged – not yet committed)
             # ==========================================
 
             transaction = Transaction(
@@ -138,11 +137,21 @@ class TransactionService:
             )
 
             db.session.add(transaction)
-            db.session.commit()
+
+            # NOTE: We do NOT commit here. The balance deduction and the
+            # transaction record are staged together. The single commit at
+            # the very end of this method is the only one that fires, keeping
+            # the entire operation fully atomic. If anything raises an
+            # exception, db.session.rollback() will undo both the balance
+            # change and the transaction record.
 
             # ==========================================
-            # AI Analysis
+            # AI Analysis (Transaction Monitor + Fraud Detector)
+            # FraudDetector stages AI fields on the transaction object
+            # but does NOT commit — this service owns the commit.
             # ==========================================
+
+            fraud_report = {}
 
             try:
 
@@ -151,50 +160,53 @@ class TransactionService:
                     sender_account
                 )
 
-                transaction.ai_reviewed = True
+                fraud_report = ai_result.get("fraud", {})
 
-                transaction.risk_score = ai_result[
-                    "fraud"
-                ]["final_score"]
+                # ==========================================
+                # Determine Final Transaction Status
+                # fraud_status was already staged on the transaction
+                # object by FraudDetector.analyze().
+                # ==========================================
 
-                transaction.fraud_probability = ai_result[
-                    "fraud"
-                ]["fraud_probability"]
+                fraud_status = transaction.fraud_status or "Low Risk"
 
-                transaction.fraud_status = ai_result[
-                    "fraud"
-                ]["fraud_status"]
+                if fraud_status.lower() == "blocked":
 
-                transaction.ai_explanation = ai_result[
-                    "fraud"
-                ].get(
-                    "ai_explanation",
-                    "Transaction analyzed successfully."
-                )
-
-                if (
-                    transaction.fraud_status.lower()
-                    == "blocked"
-                ):
-                    transaction.transaction_status = (
-                        TransactionStatus.BLOCKED
+                    # Refund the deducted amount (still uncommitted)
+                    sender_account.current_balance = balance_before
+                    transaction.available_balance_after = balance_before
+                    transaction.transaction_status = TransactionStatus.BLOCKED
+                    transaction.failure_reason = (
+                        "Transaction blocked by AI fraud detection."
                     )
 
                 else:
-                    transaction.transaction_status = (
-                        TransactionStatus.SUCCESS
-                    )
+                    transaction.transaction_status = TransactionStatus.SUCCESS
 
-            except Exception:
+            except Exception as ai_err:
 
-                # Transaction succeeds even if AI fails
-                transaction.ai_reviewed = False
+                # AI failure must NEVER block a legitimate transaction.
+                # Mark as not reviewed and proceed to SUCCESS.
+                transaction.ai_reviewed       = False
+                transaction.fraud_status      = "Low Risk"
+                transaction.risk_score        = 0.0
+                transaction.fraud_probability = 0.0
+                transaction.transaction_status = TransactionStatus.SUCCESS
+
+            # ==========================================
+            # Single Atomic Commit — commits everything:
+            #   • balance deduction on sender_account
+            #   • transaction record
+            #   • AI fraud fields staged by FraudDetector
+            #   • final transaction_status
+            # ==========================================
 
             db.session.commit()
 
             return True, {
 
-                "transaction_id": str(transaction.id),
+                "transaction_id":
+                    str(transaction.id),
 
                 "transaction_reference":
                     transaction.transaction_reference,
@@ -208,17 +220,39 @@ class TransactionService:
                 "transaction_status":
                     transaction.transaction_status.value,
 
-                "risk_score":
-                    transaction.risk_score,
+                "fraud_report": {
 
-                "fraud_probability":
-                    transaction.fraud_probability,
+                    "ml_probability":
+                        round(float(fraud_report.get("ml_probability", 0)), 2),
 
-                "fraud_status":
-                    transaction.fraud_status,
+                    "rule_score":
+                        round(float(fraud_report.get("rule_score", 0)), 2),
 
-                "ai_explanation":
-                    transaction.ai_explanation
+                    "final_score":
+                        round(float(fraud_report.get("final_score", 0)), 2),
+
+                    "fraud_probability":
+                        round(float(fraud_report.get("fraud_probability", 0)), 2),
+
+                    "fraud_status":
+                        fraud_report.get("fraud_status", "Low Risk"),
+
+                    "is_flagged":
+                        fraud_report.get("is_flagged", False),
+
+                    "recommendation":
+                        fraud_report.get("recommendation", ""),
+
+                    "reasons":
+                        fraud_report.get("reasons", []),
+
+                    "model_used":
+                        fraud_report.get("model_used", False),
+
+                    "ai_analysis":
+                        fraud_report.get("ai_analysis", {}),
+
+                }
 
             }
 
@@ -227,6 +261,8 @@ class TransactionService:
             db.session.rollback()
 
             return False, str(e)
+
+
 
     # ==================================================
     # Transaction History

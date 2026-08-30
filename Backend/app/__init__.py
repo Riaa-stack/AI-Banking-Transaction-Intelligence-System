@@ -21,6 +21,9 @@ from app.routes.transaction_routes import transaction_bp
 from app.routes.statement_routes import statement_bp
 from app.routes.chatbot_routes import chatbot_bp
 from app.routes.credit_routes import credit_bp
+from app.routes.dashboard_routes import dashboard_bp
+from app.routes.loan_routes import loan_bp
+from app.routes.security_routes import security_bp
 
 
 def create_app():
@@ -141,6 +144,25 @@ def create_app():
         credit_bp,
         url_prefix="/api/v1/credit"
     )
+
+    app.register_blueprint(
+        dashboard_bp,
+        url_prefix="/api/v1/dashboard"
+    )
+
+    app.register_blueprint(
+        loan_bp,
+        url_prefix="/api/v1/loans"
+    )
+
+    app.register_blueprint(
+        security_bp,
+        url_prefix="/api/v1/security"
+    )
+
+    # Ensure tables and columns exist
+    with app.app_context():
+        db.create_all()
 
     # ============================
     # Home Route

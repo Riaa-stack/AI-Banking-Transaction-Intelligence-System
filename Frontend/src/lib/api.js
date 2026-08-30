@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 8000,
+  timeout: 30000, // 30 seconds for AI & ML processing
   headers: {
     'Content-Type': 'application/json',
   },
@@ -48,6 +48,38 @@ api.interceptors.request.use((config) => {
 
     return Promise.reject(error);
 
+});
+
+// Global response interceptor to format validation errors and timeouts from backend
+api.interceptors.response.use((response) => {
+    return response;
+}, (error) => {
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        const timeoutMsg = "The request timed out waiting for AI processing. Please check network/backend and try again.";
+        if (error.response && error.response.data) {
+            error.response.data.message = timeoutMsg;
+        } else {
+            error.response = { data: { message: timeoutMsg } };
+        }
+    }
+    if (error.response && error.response.data && error.response.data.message) {
+        const msg = error.response.data.message;
+        if (typeof msg === 'object') {
+            // Format Marshmallow dictionary error messages into human-readable string
+            const formatted = Object.entries(msg)
+                .map(([field, msgs]) => {
+                    const formattedField = field
+                        .split('_')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ');
+                    const formattedMsgs = Array.isArray(msgs) ? msgs.join(', ') : String(msgs);
+                    return `${formattedField}: ${formattedMsgs}`;
+                })
+                .join('\n');
+            error.response.data.message = formatted;
+        }
+    }
+    return Promise.reject(error);
 });
 
 export const apiService = {
@@ -199,15 +231,19 @@ export const apiService = {
 
 },
 
-  predictCreditScore: async () => {
-
+  predictCreditScore: async (payload = null) => {
+    if (payload) {
+      const response = await api.post(
+        "/credit/predict",
+        payload
+      );
+      return response.data;
+    }
     const response = await api.get(
-        "/credit/predict"
+      "/credit/predict"
     );
-
     return response.data;
-
-},
+  },
 
   // Bank Statements operations
  getStatements: async () => {
@@ -264,6 +300,46 @@ export const apiService = {
     const response = await api.patch(`/loans/${id}`, { status });
     return response.data;
   },
+
+  recommendLoans: async (payload) => {
+    const response = await api.post('/loans/recommend', payload);
+    return response.data;
+  },
+
+  chatLoans: async (message, contextData, chatHistory = []) => {
+    const response = await api.post('/loans/chat', {
+      message,
+      context_data: contextData,
+      chat_history: chatHistory
+    });
+    return response.data;
+  },
+
+  simulateBreach: async () => {
+    const response = await api.post('/security/simulate-breach');
+    return response.data;
+  },
+
+  getIncidents: async () => {
+    const response = await api.get('/security/incidents');
+    return response.data;
+  },
+
+  recoverAccount: async (incidentId) => {
+    const response = await api.post('/security/recover-account', { incident_id: incidentId });
+    return response.data;
+  },
+
+  resetSecuritySimulation: async () => {
+    const response = await api.post('/security/reset-simulation');
+    return response.data;
+  },
+
+  testSecurityEmail: async (recipient = null) => {
+    const response = await api.post('/security/test-email', { recipient });
+    return response.data;
+  },
+
 
   // Notifications operations
   getNotifications: async () => {

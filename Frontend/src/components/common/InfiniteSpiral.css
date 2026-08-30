@@ -1,0 +1,80 @@
+.infinite-spiral {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  overflow: hidden;
+  isolation: isolate;
+  background: transparent;
+}
+
+.infinite-spiral__stage {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+/* Semi-transparent glassmorphic card - cleanly merged into background */
+.infinite-spiral__item {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: var(--infinite-spiral-card-width);
+  height: var(--infinite-spiral-card-height);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--infinite-spiral-card-radius);
+  background: rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), 0 0 15px rgba(139, 92, 246, 0.1);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
+  text-decoration: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.infinite-spiral__item:hover {
+  border-color: rgba(168, 85, 247, 0.6);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4), 0 0 25px rgba(168, 85, 247, 0.3);
+}
+
+/* Clean, semi-transparent image with high clarity on hover */
+.infinite-spiral__image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-position: center;
+  user-select: none;
+  opacity: var(--infinite-spiral-image-opacity, 0.88);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.infinite-spiral__item:hover .infinite-spiral__image {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* Subtle glossy diagonal reflection */
+.infinite-spiral__gloss {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.02) 50%,
+    rgba(0, 0, 0, 0.2) 100%
+  );
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .infinite-spiral__item {
+    transition: none;
+  }
+}

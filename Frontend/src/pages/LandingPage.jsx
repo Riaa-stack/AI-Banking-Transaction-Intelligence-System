@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useBanking } from '../context/BankingContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -7,7 +7,6 @@ import {
   Brain, 
   LineChart, 
   Sparkles, 
-  Smartphone, 
   Zap, 
   Lock, 
   ArrowRight, 
@@ -18,534 +17,661 @@ import {
   ChevronDown,
   Sun,
   Moon,
-  Coins,
+  Activity,
+  ArrowUpRight,
   TrendingUp,
-  Fingerprint
+  Scan,
+  Shield,
+  Layers
 } from 'lucide-react';
+import Swal from 'sweetalert2';
+import CentralNetworkGraphic from '../components/landing/CentralNetworkGraphic';
+import InfiniteSpiral from '../components/common/InfiniteSpiral';
+import { fetchBankingIntelFeed, FALLBACK_INTEL_ITEMS } from '../lib/intelFeedService';
 
 export default function LandingPage() {
   const { theme, toggleTheme } = useBanking();
+  const navigate = useNavigate();
+  const isDark = theme === 'dark';
+
+  const [emailInput, setEmailInput] = useState('');
   const [activeFaq, setActiveFaq] = useState(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [spiralItems, setSpiralItems] = useState(FALLBACK_INTEL_ITEMS);
+  const [isLoadingSpiral, setIsLoadingSpiral] = useState(false);
 
   useEffect(() => {
-    const handleMouseMove = (e) => {
-      const { clientX, clientY } = e;
-      const { innerWidth, innerHeight } = window;
-      const x = (clientX / innerWidth - 0.5) * 2; // range -1 to 1
-      const y = (clientY / innerHeight - 0.5) * 2; // range -1 to 1
-      setMousePos({ x, y });
+    let isMounted = true;
+    fetchBankingIntelFeed()
+      .then((items) => {
+        if (isMounted) {
+          setSpiralItems(items);
+          setIsLoadingSpiral(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load banking intel feed:', err);
+        if (isMounted) setIsLoadingSpiral(false);
+      });
+
+    return () => {
+      isMounted = false;
     };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  const stats = [
-    { value: "$14.2B+", label: "Transaction Volume Monitored" },
-    { value: "0.002%", label: "Fraud Incidence Rate" },
-    { value: "99.8%", label: "OCR Data Accuracy" },
-    { value: "780+", label: "Average Client Credit Score" }
-  ];
+  const handleDemoSubmit = (e) => {
+    e.preventDefault();
+    if (!emailInput || !emailInput.includes('@')) {
+      Swal.fire({
+        title: 'Please enter a valid email',
+        text: 'Provide your business or personal email to receive demo access.',
+        icon: 'warning',
+        confirmButtonColor: '#8b5cf6'
+      });
+      return;
+    }
 
-  const features = [
+    Swal.fire({
+      title: 'Demo Access Queued',
+      html: `<div class="text-xs text-slate-500 space-y-2 mt-2">
+        <p>A demonstration invite has been dispatched to <strong>${emailInput}</strong>.</p>
+        <p class="text-indigo-600 font-bold">You can also log in directly to explore the active banking platform.</p>
+      </div>`,
+      icon: 'success',
+      showCancelButton: true,
+      confirmButtonText: 'Launch Dashboard',
+      cancelButtonText: 'Close',
+      confirmButtonColor: '#8b5cf6',
+      cancelButtonColor: '#64748b'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        navigate('/login');
+      }
+    });
+    setEmailInput('');
+  };
+
+  // 6 Core Features requested by user
+  const coreFeatures = [
     {
-      icon: MessageSquare,
-      title: "Conversational Financial Assistant",
-      desc: "An advanced LLM chat assistant trained on personal ledger balances, providing predictive budgeting advice and financial summaries."
+      icon: ShieldCheck,
+      badge: "Zero-Day Defense",
+      title: "AI Fraud Detection",
+      desc: "Real-time XGBoost ML models paired with Gemini AI to score anomaly probabilities, geofence violations, and sudden velocity spikes under 45ms.",
+      color: "purple"
+    },
+    {
+      icon: Activity,
+      badge: "Autonomous Audit",
+      title: "Transaction Monitoring",
+      desc: "Continuous ledger stream auditing with multi-layered heuristics. Identifies suspicious deviations before settlement occurs.",
+      color: "orange"
+    },
+    {
+      icon: Brain,
+      badge: "Ledger Intelligence",
+      title: "Customer Analytics",
+      desc: "Deep financial health diagnostics, spending categorization, cash-flow liquidity insights, and predictive expense forecasting.",
+      color: "purple"
     },
     {
       icon: LineChart,
-      title: "Credit Score Forecasting",
-      desc: "Simulate and predict your future credit eligibility score with granular positive/negative factor analysis."
+      badge: "Explainable AI (XAI)",
+      title: "Credit Risk Prediction",
+      desc: "Forecasting credit scores with granular positive and negative causal factor weights, remediation simulations, and scenario planning.",
+      color: "orange"
     },
     {
       icon: Zap,
-      title: "Smart Loan Recommendation",
-      desc: "Custom interest rates, EMI structures, and capital plans suggested instantly by AI models based on cash liquidity."
+      badge: "Dynamic Underwriting",
+      title: "Loan Recommendation",
+      desc: "Rule-based pre-qualification engine computing exact mathematical EMIs, coupled with Gemini reasoning for ranked offers and pros/cons.",
+      color: "purple"
     },
     {
-      icon: FileSearch,
-      title: "OCR Statement Processing",
-      desc: "Upload standard PDF statements and watch the optical OCR engine extract balance ledgers and feed AI analytical workflows."
+      icon: MessageSquare,
+      badge: "Conversational Copilot",
+      title: "AI Banking Assistant",
+      desc: "An enterprise multimodal financial advisor capable of answering personal ledger inquiries, what-if credit questions, and loan comparisons.",
+      color: "orange"
+    }
+  ];
+
+  const stats = [
+    { value: "$14.2B+", label: "Transaction Volume Monitored" },
+    { value: "99.98%", label: "Fraud Interception Accuracy" },
+    { value: "<45ms", label: "Inference Latency Window" },
+    { value: "0.001%", label: "False Positive Lockouts" }
+  ];
+
+  const architectureSteps = [
+    {
+      num: "01",
+      title: "Vector Ingestion & Pre-Screening",
+      desc: "Inbound transfers are analyzed against geolocation maps, IP anomalies, device tokens, and historical velocity bounds."
     },
     {
-      icon: BadgeAlert,
-      title: "Autonomous Fraud Monitoring",
-      desc: "Continuous transaction monitoring with anomaly detection. Flagging geofence violations and unusual volume deviations."
+      num: "02",
+      title: "Dual ML & LLM Cognitive Scoring",
+      desc: "XGBoost classifier predicts mathematical fraud probability while Gemini 2.5 Flash evaluates behavioral nuance and semantic context."
     },
     {
-      icon: ShieldCheck,
-      title: "Enterprise Staff Oversight",
-      desc: "Fully integrated Bank Employee platform to review risk indicators, approve micro-credit lines, and audit statement queues."
+      num: "03",
+      title: "Automated Containment & SOC Alerting",
+      desc: "High-risk transfers are blocked instantaneously, the affected account is placed under security lockdown, and customer alerts are triggered."
     }
   ];
 
   const faqItems = [
     {
-      q: "How does the AI predict credit score changes?",
-      a: "Our machine learning models analyze your active payment history, dynamic utilization rates, average account age, and statement-extracted cash flow records to forecast adjustments before credit reporting bureaus."
+      q: "How does the AI model catch fraudulent transactions so fast?",
+      a: "Our architecture evaluates transactions through a lightweight, serialized XGBoost pipeline optimized for sub-45ms inference, while asynchronous Gemini reasoning processes contextual metadata in parallel without delaying critical banking rails."
     },
     {
-      q: "Is my personal financial data secure?",
-      a: "Yes. AegisFintech uses bank-grade 256-bit encryption with JWT token session verification, zero-knowledge credentials storage, and automated fraud-risk modeling."
+      q: "How does the Credit Risk Prediction calculate factor weights?",
+      a: "The Credit Score Engine uses explainable feature importance matrices across 23 demographic and financial variables (e.g. debt-to-income, credit utilization, payment history) to generate actionable remediation steps."
     },
     {
-      q: "What is OCR statement review?",
-      a: "Optical Character Recognition (OCR) converts standard PDF banking statement sheets into structured JSON database entries, allowing our financial assistants to analyze external records instantly."
+      q: "Can I simulate cyber incidents and account lockouts?",
+      a: "Yes! AI BankIQ includes a fully controlled Security Lockdown & Breach Simulation console where administrators can test automated containment, transaction blocks, and multi-step customer recovery workflows."
+    },
+    {
+      q: "Is personal customer banking data encrypted?",
+      a: "Yes. All data at rest is encrypted with AES-256 and transit is secured via TLS 1.3 with JWT session verification and zero hardcoded credentials."
     }
   ];
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300">
-      
-      {/* Premium Floating Header */}
-      <motion.header 
-        initial={{ y: -100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 100, damping: 15 }}
-        className="sticky top-0 z-50 w-full border-b border-slate-200/50 bg-white/80 backdrop-blur-md dark:border-slate-800/50 dark:bg-slate-950/80"
-      >
-        <div className="mx-auto flex max-w-7xl h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <motion.div 
-              whileHover={{ rotate: 360 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold"
-            >
-              A
-            </motion.div>
-            <span className="font-sans text-sm font-extrabold tracking-tight dark:text-white">
-              Aegis<span className="text-indigo-600">Fintech</span>
+    <div className={`min-h-screen font-sans transition-colors duration-300 ${
+      isDark ? 'bg-[#0a0b0e] text-white' : 'bg-[#fcfdfe] text-slate-900'
+    }`}>
+
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* 1. TOP NAVBAR (Faithful to Reference Image Layout)               */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <header className="sticky top-0 z-50 pt-4 px-4 sm:px-6 md:px-8">
+        <nav className={`mx-auto max-w-6xl rounded-2xl px-5 py-3.5 flex items-center justify-between border backdrop-blur-md transition-all ${
+          isDark 
+            ? 'bg-[#111319]/85 border-slate-800/80 shadow-lg shadow-black/40' 
+            : 'bg-white/90 border-slate-200/90 shadow-sm shadow-slate-200/50'
+        }`}>
+          
+          {/* Brand Logo & Name */}
+          <Link to="/" className="flex items-center gap-2.5 group">
+            {/* Twin Isometric Diamond Logo (Purple over Orange) */}
+            <div className="relative w-6 h-6 flex items-center justify-center">
+              {/* Bottom Orange Diamond */}
+              <div className="absolute w-3.5 h-3.5 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xs transform rotate-45 translate-x-1 translate-y-1 opacity-90 group-hover:translate-x-1.5 transition-transform" />
+              {/* Top Purple Diamond */}
+              <div className="absolute w-3.5 h-3.5 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xs transform rotate-45 -translate-x-0.5 -translate-y-0.5 shadow-sm shadow-purple-500/50" />
+            </div>
+            
+            <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white">
+              AI Bank<span className="text-purple-500">IQ</span>
             </span>
+          </Link>
+
+          {/* Center Links (Desktop) */}
+          <div className="hidden md:flex items-center gap-7 text-xs font-medium text-slate-400 dark:text-slate-400">
+            <a href="#features" className="hover:text-slate-900 dark:hover:text-white transition-colors">Features</a>
+            <a href="#intelligence" className="hover:text-slate-900 dark:hover:text-white transition-colors">Intelligence</a>
+            <a href="#security" className="hover:text-slate-900 dark:hover:text-white transition-colors">Security</a>
+            <a href="#metrics" className="hover:text-slate-900 dark:hover:text-white transition-colors">Metrics</a>
+            <a href="#faq" className="hover:text-slate-900 dark:hover:text-white transition-colors">Docs</a>
           </div>
-          <div className="flex items-center gap-4">
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-3">
+            {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
-              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100 transition-colors"
-              aria-label="Toggle theme"
+              aria-label="Toggle Theme"
+              className={`p-2 rounded-xl border text-xs transition-colors cursor-pointer ${
+                isDark 
+                  ? 'border-slate-800 bg-slate-900/60 text-slate-300 hover:text-white hover:bg-slate-800' 
+                  : 'border-slate-200 bg-slate-100 text-slate-700 hover:text-slate-950 hover:bg-slate-200'
+              }`}
             >
-              {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-amber-500 animate-spin-slow" /> : <Moon className="h-4.5 w-4.5" />}
+              {isDark ? <Sun className="h-3.5 w-3.5 text-amber-400" /> : <Moon className="h-3.5 w-3.5 text-purple-600" />}
             </button>
+
+            {/* Login Link */}
             <Link
               to="/login"
-              className="text-xs font-bold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors"
+              className={`text-xs font-semibold px-3 py-2 transition-colors ${
+                isDark ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-slate-950'
+              }`}
             >
-              Log In
+              Login
             </Link>
+
+            {/* Get Started Button */}
             <Link
               to="/signup"
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/10 hover:bg-indigo-500 transition-all hover:scale-[1.05]"
+              className={`text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm cursor-pointer ${
+                isDark 
+                  ? 'bg-white text-slate-950 hover:bg-slate-150' 
+                  : 'bg-slate-950 text-white hover:bg-slate-800'
+              }`}
             >
-              Sign Up
+              Get started
             </Link>
           </div>
-        </div>
-      </motion.header>
 
-      {/* Hero Section with Interactive Parallax */}
-      <section className="relative overflow-hidden px-6 pt-16 pb-20 md:pt-28 md:pb-32" id="hero-landing">
-        {/* Background ambient radial glows (interactive parallax) */}
-        <div 
-          style={{ 
-            transform: `translate(${mousePos.x * 25}px, ${mousePos.y * 25}px)`,
-            filter: 'blur(100px)'
-          }}
-          className="absolute top-1/4 left-1/4 -z-10 h-[400px] w-[400px] rounded-full bg-indigo-500/10 dark:bg-indigo-500/5 transition-transform duration-300 ease-out" 
-        />
-        <div 
-          style={{ 
-            transform: `translate(${mousePos.x * -35}px, ${mousePos.y * -35}px)`,
-            filter: 'blur(120px)'
-          }}
-          className="absolute bottom-1/4 right-1/4 -z-10 h-[450px] w-[450px] rounded-full bg-purple-500/10 dark:bg-purple-500/5 transition-transform duration-300 ease-out" 
-        />
+        </nav>
+      </header>
+
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* 2. HERO SECTION WITH RIGHT-SIDE 3D INFINITE SPIRAL INTEL LOOP     */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <section className="relative pt-12 md:pt-16 pb-12 px-4 sm:px-6 overflow-hidden">
         
-        <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        {/* Subtle Background Glows */}
+        <div className="absolute top-12 left-1/4 -translate-x-1/2 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-48 right-1/4 w-96 h-96 bg-orange-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Responsive Split Hero: Left = Headline & CTA; Right = Semi-transparent Glassmorphic InfiniteSpiral */}
+        <div className="mx-auto max-w-7xl relative z-10 flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-14">
           
-          {/* Hero Left Content */}
-          <motion.div 
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="lg:col-span-7 text-left"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3.5 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-700/10 dark:bg-indigo-950/40 dark:text-indigo-400 dark:ring-indigo-400/20 mb-6"
-            >
-              <Sparkles className="h-3.5 w-3.5 animate-pulse" /> Next-Gen AI Fintech Platform
-            </motion.div>
+          {/* Left Column (Main Headline, Subtitle, Form & Badges) */}
+          <div className="w-full lg:w-7/12 flex-1 text-left space-y-6 max-w-2xl">
             
-            <h1 className="font-sans text-4xl font-extrabold tracking-tight sm:text-6xl text-slate-950 dark:text-white leading-[1.15] mb-6">
-              Autonomous Banking & <br />
-              <span className="bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                Transaction Intelligence
+            {/* Live Status Pill */}
+            <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-md transition-all ${
+              isDark 
+                ? 'bg-slate-900/60 border-purple-500/30 text-slate-200' 
+                : 'bg-white/80 border-purple-200 text-slate-700 shadow-sm'
+            }`}>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-            </h1>
-            
-            <p className="max-w-2xl text-sm text-slate-600 dark:text-slate-400 md:text-base mb-10 leading-relaxed">
-              A state-of-the-art enterprise financial system. Harnessing conversational ledger assistants, advanced OCR character modeling, automatic risk indexing, and real-time fraud forecasting.
-            </p>
-
-            <div className="flex flex-wrap gap-4">
-              <Link 
-                to="/signup" 
-                className="group flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all hover:-translate-y-0.5"
-                id="cta-get-started"
-              >
-                Get Started Free 
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link 
-                to="/login" 
-                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 transition-all hover:-translate-y-0.5"
-                id="cta-login"
-              >
-                Access Portal
-              </Link>
+              <span className="text-[11px] font-medium tracking-wide">Live AI Banking & Fraud Intelligence</span>
+              <span className="text-[10px] font-bold text-purple-400 dark:text-purple-300 ml-1 px-1.5 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/25">
+                v3.4 Active
+              </span>
             </div>
-          </motion.div>
 
-          {/* Hero Right Visuals: Interactive 3D Parallax Card Stack */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 30 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.1, ease: "easeOut" }}
-            className="lg:col-span-5 relative flex justify-center items-center h-[400px] select-none"
-          >
-            {/* Perspective wrapper */}
-            <div 
-              style={{ perspective: 1000 }}
-              className="relative w-full max-w-[360px]"
+            {/* Main Headline */}
+            <motion.h1 
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.12]"
             >
-              {/* Main Card */}
-              <motion.div
-                style={{
-                  transform: `rotateX(${mousePos.y * -8}deg) rotateY(${mousePos.x * 8}deg)`,
-                  transformStyle: "preserve-3d"
-                }}
-                className="relative rounded-3xl border border-white/20 bg-gradient-to-br from-indigo-900/90 to-slate-950/95 p-6 text-white shadow-2xl backdrop-blur-md transition-transform duration-200 ease-out"
+              AI-Powered Banking.
+              <br />
+              <span className="bg-gradient-to-r from-purple-400 via-indigo-300 to-orange-400 bg-clip-text text-transparent">
+                Smarter Every Day.
+              </span>
+            </motion.h1>
+
+            {/* Subtitle */}
+            <motion.p 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.12, ease: "easeOut" }}
+              className={`text-base sm:text-lg max-w-xl leading-relaxed font-normal ${
+                isDark ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
+              Secure transactions, detect fraud and make smarter financial decisions with AI-powered banking intelligence.
+            </motion.p>
+
+            {/* Email CTA Input Form */}
+            <motion.form 
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.22, ease: "easeOut" }}
+              onSubmit={handleDemoSubmit}
+              className={`flex items-center max-w-md p-1.5 rounded-2xl border transition-all ${
+                isDark 
+                  ? 'bg-[#12141c]/80 backdrop-blur-md border-slate-800 shadow-xl shadow-black/40 focus-within:border-purple-500/50' 
+                  : 'bg-white/90 backdrop-blur-md border-slate-200 shadow-md shadow-slate-200/60 focus-within:border-purple-500'
+              }`}
+            >
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="Your business email"
+                className={`w-full bg-transparent text-xs px-3.5 py-2.5 outline-none placeholder:text-slate-500 font-medium ${
+                  isDark ? 'text-white' : 'text-slate-900'
+                }`}
+              />
+              <button
+                type="submit"
+                className={`shrink-0 text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm ${
+                  isDark 
+                    ? 'bg-white text-slate-950 hover:bg-slate-100' 
+                    : 'bg-slate-950 text-white hover:bg-slate-850'
+                }`}
               >
-                <div className="flex justify-between items-start mb-8">
-                  <div className="space-y-1">
-                    <p className="text-[10px] uppercase tracking-wider text-indigo-300 font-bold">Premium Platinum Ledger</p>
-                    <p className="text-sm font-mono tracking-wider font-semibold">AEGIS DIRECT CONNECT</p>
-                  </div>
-                  <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm border border-white/10">
-                    <Fingerprint className="h-5 w-5 text-indigo-400" />
-                  </div>
-                </div>
+                Get a demo
+              </button>
+            </motion.form>
 
-                <div className="space-y-1 mb-8">
-                  <p className="text-[10px] text-indigo-300 uppercase tracking-wider font-bold">Available Reserves</p>
-                  <p className="text-3xl font-extrabold tracking-tight font-sans bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                    $184,520.45
-                  </p>
-                </div>
+            {/* Micro Trust Indicators */}
+            <div className="pt-2 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle className="h-4 w-4 text-emerald-500" />
+                <span>&lt;45ms Latency</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle className="h-4 w-4 text-purple-500" />
+                <span>99.98% Interception</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle className="h-4 w-4 text-amber-500" />
+                <span>SOC 2 Type II</span>
+              </div>
+            </div>
 
-                <div className="flex justify-between items-end">
-                  <div>
-                    <p className="text-[8px] text-indigo-300 uppercase tracking-wider">Account holder</p>
-                    <p className="text-xs font-bold tracking-wide">UMER K. INTEGRATED</p>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <div className="h-5 w-5 rounded-full bg-indigo-500/80" />
-                    <div className="h-5 w-5 rounded-full bg-purple-500/80 -ml-2.5" />
-                  </div>
-                </div>
-              </motion.div>
+          </div>
 
-              {/* Floating Widget 1: Real-time Credit Tracker */}
-              <motion.div
-                style={{
-                  transform: `translate3d(${mousePos.x * 24}px, ${mousePos.y * -20}px, 50px)`
-                }}
-                className="absolute -top-6 -right-4 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-xl dark:border-slate-800 dark:bg-slate-900/95 backdrop-blur-sm transition-transform duration-200 ease-out"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/60 p-1.5 text-emerald-600 dark:text-emerald-400">
-                    <TrendingUp className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">Credit Score</p>
-                    <p className="text-sm font-bold text-slate-800 dark:text-white">815 <span className="text-[10px] text-emerald-500 font-medium">+12 pts</span></p>
-                  </div>
-                </div>
-              </motion.div>
+          {/* Right Column: Seamlessly Merged 3D Infinite Spiral Stream */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, x: 20 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ duration: 0.75, delay: 0.2, ease: "easeOut" }}
+            className="w-full lg:w-5/12 shrink-0 flex justify-center lg:justify-end"
+          >
+            {/* Seamless, Borderless & Semi-Transparent Floating Container */}
+            <div className="w-full max-w-[500px] h-[640px] sm:h-[700px] lg:h-[740px] relative overflow-hidden flex items-center justify-center pointer-events-auto">
+              
+              {/* Subtle Ambient Radial Lighting Blending into Landing Page */}
+              <div className="absolute top-1/4 right-10 w-64 h-64 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-1/4 left-10 w-64 h-64 bg-orange-500/15 rounded-full blur-3xl pointer-events-none" />
 
-              {/* Floating Widget 2: Security Indicator */}
-              <motion.div
-                style={{
-                  transform: `translate3d(${mousePos.x * -20}px, ${mousePos.y * 28}px, 30px)`
-                }}
-                className="absolute -bottom-8 -left-6 rounded-2xl border border-slate-200 bg-white/95 p-3.5 shadow-xl dark:border-slate-800 dark:bg-slate-900/95 backdrop-blur-sm transition-transform duration-200 ease-out"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[10px] font-bold text-slate-800 dark:text-white">AI Guard Secure</p>
-                    <p className="text-[8px] text-slate-400">Zero active threats detected</p>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Floating Widget 3: Live Liquid Asset Pulse */}
-              <motion.div
-                style={{
-                  transform: `translate3d(${mousePos.x * 12}px, ${mousePos.y * 15}px, -20px)`
-                }}
-                className="absolute -right-8 -bottom-4 rounded-xl border border-indigo-100 bg-indigo-50/90 dark:border-indigo-950 dark:bg-indigo-950/80 px-3 py-2 shadow-lg backdrop-blur-sm transition-transform duration-200 ease-out text-left"
-              >
-                <div className="flex items-center gap-1.5">
-                  <Coins className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 animate-bounce" />
-                  <span className="text-[9px] font-extrabold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">KYC Level 5</span>
-                </div>
-              </motion.div>
+              {/* 3D Infinite Spiral Loop Component (Stretched vertically, borderless & merged) */}
+              <div className="w-full h-full relative">
+                <InfiniteSpiral
+                  items={spiralItems}
+                  animationMode="auto"
+                  speed={0.55}
+                  radius={165}
+                  cardWidth={120}
+                  cardHeight={115}
+                  verticalSpacing={68}
+                  perspective={1100}
+                  cardRadius={14}
+                  centerScale={1.2}
+                  edgeBlur={4}
+                  cardsPerTurn={7}
+                  pauseOnHover
+                  direction="up"
+                  rotation={0}
+                  cardTilt={0}
+                  edgeFade={0.28}
+                  imageFit="cover"
+                  grayscale={0}
+                  imageOpacity={0.88}
+                />
+              </div>
 
             </div>
           </motion.div>
 
         </div>
+
+        {/* ── Central Visual: Exact Recreated Financial Network Graphic (Preserved intact below the split) ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.35, ease: "easeOut" }}
+          className="mt-16 md:mt-22 max-w-6xl mx-auto"
+        >
+          <div className="text-center mb-5">
+            <span className="text-[11px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">
+              Autonomous Neural Transaction Ingestion & Remediation Highway
+            </span>
+          </div>
+          <CentralNetworkGraphic isDark={isDark} />
+        </motion.div>
+
       </section>
 
-      {/* Stats Board with Scroll Animations */}
-      <section className="border-y border-slate-200/60 bg-white/40 py-12 dark:border-slate-800/60 dark:bg-slate-950/40 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-6">
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={{
-              hidden: {},
-              visible: {
-                transition: {
-                  staggerChildren: 0.1
-                }
-              }
-            }}
-            className="grid grid-cols-2 gap-8 md:grid-cols-4"
-          >
-            {stats.map((stat, idx) => (
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* 3. ANIMATED STATISTICS BANNER                                    */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <section id="metrics" className={`py-14 border-y ${
+        isDark ? 'border-slate-800/80 bg-[#0d0f15]/50' : 'border-slate-200/80 bg-slate-50/70'
+      }`}>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
+            {stats.map((item, idx) => (
               <motion.div 
                 key={idx}
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 80 } }
-                }}
-                whileHover={{ scale: 1.05 }}
-                className="text-center cursor-default p-4 rounded-xl transition-all hover:bg-slate-100/30 dark:hover:bg-slate-900/30"
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                className="space-y-1.5"
               >
-                <p className="font-sans text-3xl font-extrabold tracking-tight text-indigo-600 dark:text-indigo-400 md:text-4xl">
-                  {stat.value}
-                </p>
-                <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  {stat.label}
-                </p>
+                <div className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
+                  {item.value}
+                </div>
+                <div className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {item.label}
+                </div>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* AI Capabilities / Core Features Grid */}
-      <section className="px-6 py-20 md:py-28 animate-fade-in" id="capabilities-landing">
-        <div className="mx-auto max-w-7xl">
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="mx-auto max-w-3xl text-center mb-16"
-          >
-            <h2 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-              Engineered for Enterprise Intelligence
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* 4. THE 6 CORE INTELLIGENCE FEATURES                              */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <section id="features" className="py-20 px-4 sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          
+          {/* Section Header */}
+          <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
+            <span className="text-[11px] font-bold tracking-widest text-purple-500 uppercase px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20">
+              Platform Architecture
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              End-to-End Banking Intelligence
             </h2>
-            <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
-              Every banking layer is augmented with deep semantic capabilities, giving both clients and risk managers an unparalleled operational advantage.
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'} leading-relaxed`}>
+              Every transfer, loan assessment, and customer query is routed through dedicated machine learning micro-models and generative reasoning agents.
             </p>
-          </motion.div>
+          </div>
 
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={{
-              hidden: {},
-              visible: { transition: { staggerChildren: 0.1 } }
-            }}
-            className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            {features.map((feat, idx) => {
-              const Icon = feat.icon;
+          {/* Features 2x3 Grid */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {coreFeatures.map((feat, idx) => {
+              const IconComp = feat.icon;
+              const isPurple = feat.color === 'purple';
+
               return (
-                <motion.div 
+                <motion.div
                   key={idx}
-                  variants={{
-                    hidden: { opacity: 0, y: 30 },
-                    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
-                  }}
-                  whileHover={{ 
-                    y: -8, 
-                    scale: 1.01,
-                    boxShadow: "0 20px 25px -5px rgba(99, 102, 241, 0.08), 0 8px 10px -6px rgba(99, 102, 241, 0.08)"
-                  }}
-                  className="group relative rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/40 hover:border-indigo-500/50 dark:hover:border-indigo-500/50 transition-all duration-350 cursor-pointer"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.45, delay: idx * 0.08 }}
+                  className={`rounded-3xl p-6 border transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1 ${
+                    isDark 
+                      ? 'bg-[#111319] border-slate-800/80 hover:border-slate-700 shadow-lg shadow-black/20 hover:shadow-purple-900/10' 
+                      : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-sm shadow-slate-200/40 hover:shadow-md'
+                  }`}
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 mb-5 group-hover:scale-110 transition-transform">
-                    <Icon className="h-5 w-5" />
+                  <div className="space-y-4">
+                    {/* Top Icon & Badge */}
+                    <div className="flex items-center justify-between">
+                      <div className={`h-11 w-11 rounded-2xl flex items-center justify-center border ${
+                        isPurple 
+                          ? (isDark ? 'bg-purple-950/40 border-purple-800/40 text-purple-400' : 'bg-purple-50 border-purple-200 text-purple-600')
+                          : (isDark ? 'bg-orange-950/40 border-orange-800/40 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-600')
+                      }`}>
+                        <IconComp className="h-5 w-5" />
+                      </div>
+                      
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                        isPurple 
+                          ? (isDark ? 'bg-purple-950/30 text-purple-400 border border-purple-900/30' : 'bg-purple-50 text-purple-700 border border-purple-200')
+                          : (isDark ? 'bg-orange-950/30 text-orange-400 border border-orange-900/30' : 'bg-orange-50 text-orange-700 border border-orange-200')
+                      }`}>
+                        {feat.badge}
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                      {feat.title}
+                    </h3>
+
+                    {/* Description */}
+                    <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                      {feat.desc}
+                    </p>
                   </div>
-                  <h3 className="font-sans text-base font-bold text-slate-950 dark:text-white">{feat.title}</h3>
-                  <p className="mt-2.5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{feat.desc}</p>
+
+                  <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-500 group-hover:text-purple-500 transition-colors flex items-center gap-1">
+                      Explore Capability <ArrowUpRight className="h-3 w-3" />
+                    </span>
+                  </div>
                 </motion.div>
               );
             })}
-          </motion.div>
+          </div>
+
         </div>
       </section>
 
-      {/* Why Choose Us & AI Banking Intro with 3D Mock Audits */}
-      <section className="bg-slate-100/50 px-6 py-20 dark:bg-slate-900/30">
-        <div className="mx-auto max-w-5xl">
-          <div className="grid gap-12 md:grid-cols-2 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-            >
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Autonomous Ledger Engine</span>
-              <h2 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white mt-2">
-                Decide on credit risks in real-time.
-              </h2>
-              <p className="mt-4 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                By processing multiple bank statement sheets through our specialized OCR systems, AegisFintech evaluates liquid reserves, average spending rates, and suspicious outbound transfers inside a centralized model.
-              </p>
-              <div className="mt-6 flex flex-col gap-3">
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                  <span className="text-xs text-slate-700 dark:text-slate-300"><strong>Dynamic Credit Forecasting</strong> matches user profiles instantly.</span>
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* 5. HOW IT WORKS / SOC REMEDIATION PIPELINE                       */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <section id="security" className={`py-20 px-4 sm:px-6 border-t ${
+        isDark ? 'border-slate-800/80 bg-[#0c0e14]/60' : 'border-slate-200/80 bg-slate-50/50'
+      }`}>
+        <div className="mx-auto max-w-6xl">
+          
+          <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
+            <span className="text-[11px] font-bold tracking-widest text-orange-500 uppercase px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+              Autonomous Remediation
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              The Path from Threat to Containment
+            </h2>
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'} leading-relaxed`}>
+              How the central intelligence core evaluates legitimate transactions, remedies suspicious attempts, and contains breaches.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {architectureSteps.map((step, sIdx) => (
+              <motion.div
+                key={sIdx}
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: sIdx * 0.12 }}
+                className={`rounded-3xl p-7 border relative overflow-hidden ${
+                  isDark ? 'bg-[#111319] border-slate-800/80' : 'bg-white border-slate-200/90'
+                }`}
+              >
+                <div className="text-3xl font-black text-slate-300 dark:text-slate-700 font-mono mb-4">
+                  {step.num}
                 </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                  <span className="text-xs text-slate-700 dark:text-slate-300"><strong>Autonomous Fraud Mitigation</strong> flags compliance problems.</span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                  <span className="text-xs text-slate-700 dark:text-slate-300"><strong>Full Operational Control Console</strong> for risk agents.</span>
-                </div>
-              </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              whileHover={{ rotateY: 5, rotateX: -5 }}
-              transition={{ duration: 0.6 }}
-              className="relative rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950 shadow-xl transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-900">
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse" />
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">Live AI Risk Audit</span>
-                </div>
-                <span className="text-[10px] font-mono text-indigo-500">Node-A918</span>
-              </div>
-              <div className="mt-4 space-y-3.5">
-                <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
-                  <span className="text-[10px] font-bold text-slate-400">Flagged Transaction</span>
-                  <div className="flex justify-between mt-1 text-xs">
-                    <span className="font-semibold text-slate-900 dark:text-white">Outbound crypto broker ATM</span>
-                    <span className="font-bold text-slate-950 dark:text-white">$12,500.00</span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded-lg p-3">
-                  <span className="text-xs text-rose-700 dark:text-rose-400 font-semibold">Anomaly Index:</span>
-                  <span className="text-sm font-extrabold text-rose-600 dark:text-rose-400">84.2% (CRITICAL)</span>
-                </div>
-                <p className="text-[10px] text-slate-500 leading-relaxed italic">
-                  "Transaction flagged due to cryptocurrency routing outside normal geofence coordinate limits. Suspended outbound processing pending agent override review."
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
+                  {step.title}
+                </h3>
+                <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {step.desc}
                 </p>
+              </motion.div>
+            ))}
+          </div>
+
+        </div>
+      </section>
+
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* 6. SOC SIMULATION CALLOUT BANNER                                 */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <section id="intelligence" className="py-16 px-4 sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <div className={`rounded-3xl p-8 sm:p-12 border relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 ${
+            isDark 
+              ? 'bg-gradient-to-r from-[#12141e] to-[#1a1329] border-purple-900/30' 
+              : 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200'
+          }`}>
+            
+            <div className="space-y-3 max-w-xl">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                  Live Security Sandbox Active
+                </span>
               </div>
-            </motion.div>
+              <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                Experience the SOC Breach Simulation
+              </h3>
+              <p className={`text-xs sm:text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'} leading-relaxed`}>
+                Trigger a simulated cyber incident directly inside your dashboard. Watch neural vectors classify threat confidence and activate emergency transaction locks.
+              </p>
+            </div>
+
+            <div className="shrink-0 flex flex-col sm:flex-row gap-3">
+              <Link
+                to="/customer/security-lockdown"
+                className="px-6 py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/25 transition-all text-center"
+              >
+                Launch SOC Simulator
+              </Link>
+              <Link
+                to="/signup"
+                className={`px-6 py-3.5 rounded-xl border text-xs font-bold text-center transition-all ${
+                  isDark 
+                    ? 'border-slate-700 bg-slate-900/80 text-white hover:bg-slate-800' 
+                    : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-100'
+                }`}
+              >
+                Open Banking Profile
+              </Link>
+            </div>
+
           </div>
         </div>
       </section>
 
-      {/* Testimonials with hover expand */}
-      <section className="px-6 py-20">
-        <div className="mx-auto max-w-5xl">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white">What Fintech Leaders Say</h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ y: -5 }}
-              className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900/30 shadow-sm"
-            >
-              <p className="text-xs text-slate-600 dark:text-slate-400 italic">
-                "Implementing this platform for our credit forecasting reduced statement processing time from 4 days to 3 seconds. The OCR extraction works flawlessly with complex multi-bank checkbooks."
-              </p>
-              <div className="mt-4 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-xs text-indigo-600">
-                  MC
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-950 dark:text-white">Marcus Vance</h4>
-                  <p className="text-[10px] text-slate-400">Risk Manager, Capital Trust</p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ y: -5 }}
-              transition={{ delay: 0.1 }}
-              className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900/30 shadow-sm"
-            >
-              <p className="text-xs text-slate-600 dark:text-slate-400 italic">
-                "The user experience resembles a high-end consumer app rather than standard clunky banking terminals. The conversational chatbot provides genuine analytical answers instead of basic generic FAQs."
-              </p>
-              <div className="mt-4 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center font-bold text-xs text-purple-600">
-                  AL
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-950 dark:text-white">Aria Lindqvist</h4>
-                  <p className="text-[10px] text-slate-400">Head of UX, North Horizon</p>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Accordion with buttery-smooth height animation */}
-      <section className="px-6 py-16 bg-slate-100/50 dark:bg-slate-900/10">
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* 7. FREQUENTLY ASKED QUESTIONS (Accordion)                       */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <section id="faq" className={`py-20 px-4 sm:px-6 border-t ${
+        isDark ? 'border-slate-800/80' : 'border-slate-200/80'
+      }`}>
         <div className="mx-auto max-w-3xl">
-          <h2 className="text-2xl font-bold text-center text-slate-950 dark:text-white mb-10">Frequently Asked Questions</h2>
-          <div className="space-y-4">
+          
+          <div className="text-center mb-12 space-y-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Frequently Asked Questions
+            </h2>
+            <p className={`text-xs sm:text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              Everything you need to know about AI BankIQ's intelligence architecture.
+            </p>
+          </div>
+
+          <div className="space-y-3">
             {faqItems.map((item, idx) => (
               <div 
                 key={idx} 
-                className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-sm"
+                className={`rounded-2xl border overflow-hidden transition-colors ${
+                  isDark ? 'border-slate-800/80 bg-[#111319]' : 'border-slate-200 bg-white'
+                }`}
               >
                 <button
                   onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
-                  className="flex w-full items-center justify-between p-4 text-left text-xs font-bold text-slate-900 dark:text-white transition-colors hover:bg-slate-50 dark:hover:bg-slate-950/40"
+                  className="flex w-full items-center justify-between p-4 sm:p-5 text-left text-xs sm:text-sm font-bold text-slate-900 dark:text-white transition-colors hover:opacity-85 cursor-pointer"
                 >
                   <span>{item.q}</span>
-                  <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${activeFaq === idx ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 shrink-0 ml-4 ${
+                    activeFaq === idx ? 'rotate-180 text-purple-500' : ''
+                  }`} />
                 </button>
                 
                 <AnimatePresence initial={false}>
@@ -557,7 +683,9 @@ export default function LandingPage() {
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.25, ease: "easeInOut" }}
                     >
-                      <div className="border-t border-slate-100 dark:border-slate-800 p-4 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                      <div className={`border-t p-4 sm:p-5 text-xs leading-relaxed ${
+                        isDark ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-600'
+                      }`}>
                         {item.a}
                       </div>
                     </motion.div>
@@ -566,23 +694,40 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-12 dark:border-slate-900 dark:bg-slate-950">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
-                A
-              </div>
-              <span className="font-sans text-sm font-extrabold tracking-tight dark:text-white">
-                Aegis<span className="text-indigo-600">Fintech</span>
-              </span>
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* 8. FOOTER                                                        */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <footer className={`border-t py-12 px-4 sm:px-6 transition-colors ${
+        isDark ? 'border-slate-900 bg-[#090a0d]' : 'border-slate-200 bg-white'
+      }`}>
+        <div className="mx-auto max-w-6xl flex flex-col md:flex-row items-center justify-between gap-6">
+          
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-5 h-5 flex items-center justify-center">
+              <div className="absolute w-3 h-3 bg-orange-500 rounded-xs transform rotate-45 translate-x-0.5 translate-y-0.5" />
+              <div className="absolute w-3 h-3 bg-purple-500 rounded-xs transform rotate-45 -translate-x-0.5 -translate-y-0.5" />
             </div>
-            <p className="text-xs text-slate-400">&copy; 2026 AegisFintech Enterprise. All rights reserved.</p>
+            <span className="font-bold text-sm text-slate-900 dark:text-white">
+              AI Bank<span className="text-purple-500">IQ</span>
+            </span>
+            <span className="text-xs text-slate-400 ml-2">
+              &copy; {new Date().getFullYear()} AI BankIQ Systems. All rights reserved.
+            </span>
           </div>
+
+          <div className="flex items-center gap-6 text-xs text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              SOC2 Type II Certified
+            </span>
+            <span>256-Bit TLS</span>
+            <span>RBI / PCI-DSS Ready</span>
+          </div>
+
         </div>
       </footer>
 

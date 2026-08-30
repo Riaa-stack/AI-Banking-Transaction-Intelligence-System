@@ -3,8 +3,7 @@ from datetime import datetime
 from app.extensions import db
 from app.models.notification import (
     Notification,
-    NotificationType,
-    NotificationPriority
+    NotificationType
 )
 
 
@@ -23,9 +22,7 @@ class NotificationService:
 
         message,
 
-        notification_type,
-
-        priority=NotificationPriority.LOW
+        notification_type
 
     ):
 
@@ -33,15 +30,13 @@ class NotificationService:
 
             notification = Notification(
 
-                user_id=user_id,
+                customer_id=user_id,
 
                 title=title,
 
                 message=message,
 
-                notification_type=notification_type,
-
-                priority=priority
+                notification_type=notification_type
 
             )
 
@@ -69,7 +64,7 @@ class NotificationService:
 
                 Notification.query
 
-                .filter_by(user_id=user_id)
+                .filter_by(customer_id=user_id)
 
                 .order_by(
 
@@ -98,9 +93,6 @@ class NotificationService:
 
                     "notification_type":
                         notification.notification_type.value,
-
-                    "priority":
-                        notification.priority.value,
 
                     "is_read":
                         notification.is_read,
@@ -139,7 +131,7 @@ class NotificationService:
 
                     id=notification_id,
 
-                    user_id=user_id
+                    customer_id=user_id
 
                 )
 
@@ -152,8 +144,6 @@ class NotificationService:
                 return False, "Notification not found."
 
             notification.is_read = True
-
-            notification.read_at = datetime.utcnow()
 
             db.session.commit()
 
@@ -180,7 +170,7 @@ class NotificationService:
 
                 .filter_by(
 
-                    user_id=user_id,
+                    customer_id=user_id,
 
                     is_read=False
 
@@ -193,8 +183,6 @@ class NotificationService:
             for notification in notifications:
 
                 notification.is_read = True
-
-                notification.read_at = datetime.utcnow()
 
             db.session.commit()
 
@@ -229,7 +217,7 @@ class NotificationService:
 
                     id=notification_id,
 
-                    user_id=user_id
+                    customer_id=user_id
 
                 )
 

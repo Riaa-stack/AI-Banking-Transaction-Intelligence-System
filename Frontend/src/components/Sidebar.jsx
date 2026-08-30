@@ -44,6 +44,7 @@ export default function Sidebar() {
     { name: "Notifications", path: "/customer/notifications", icon: Bell },
     { name: "Profile", path: "/customer/profile", icon: User },
     { name: "Settings", path: "/customer/settings", icon: Settings },
+    { name: "Security Lockdown", path: "/customer/security-lockdown", icon: ShieldAlert },
   ];
 
   const employeeMenu = [

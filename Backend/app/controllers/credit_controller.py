@@ -1,3 +1,4 @@
+from flask import request
 from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity
@@ -23,27 +24,24 @@ class CreditController:
         try:
 
             user_id = get_jwt_identity()
+            json_payload = request.get_json(silent=True) or {}
 
             result = CreditService.predict_credit_score(
-                user_id
+                user_id,
+                payload=json_payload
             )
 
             return success_response(
-
                 "Credit score predicted successfully.",
-
-                result
-
+                result,
+                200
             )
 
         except Exception as e:
 
             return error_response(
-
                 str(e),
-
                 500
-
             )
 
     # ==========================================
@@ -54,7 +52,5 @@ class CreditController:
     def health():
 
         return success_response(
-
             "Credit Score Service Running"
-
         )

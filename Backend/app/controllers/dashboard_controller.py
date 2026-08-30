@@ -49,36 +49,37 @@ class DashboardController:
                 str(e),
                 500
             )
-        # ==========================================
-# Employee Dashboard
-# ==========================================
 
-@staticmethod
-@jwt_required()
-def employee_dashboard():
+    # ==========================================
+    # Employee Dashboard
+    # ==========================================
 
-    try:
+    @staticmethod
+    @jwt_required()
+    def employee_dashboard():
 
-        success, result = (
-            DashboardService.get_employee_dashboard()
-        )
+        try:
 
-        if not success:
-
-            return error_response(
-                result,
-                404
+            success, result = (
+                DashboardService.get_employee_dashboard()
             )
 
-        return success_response(
-            "Employee dashboard fetched successfully.",
-            result,
-            200
-        )
+            if not success:
 
-    except Exception as e:
+                return error_response(
+                    result,
+                    404
+                )
 
-        return error_response(
-            str(e),
-            500
-        )
+            return success_response(
+                "Employee dashboard fetched successfully.",
+                result,
+                200
+            )
+
+        except Exception as e:
+
+            return error_response(
+                str(e),
+                500
+            )

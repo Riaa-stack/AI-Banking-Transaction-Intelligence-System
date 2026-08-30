@@ -67,7 +67,7 @@ class CustomerService:
         # -------------------------------
 
         notifications = Notification.query.filter_by(
-            user_id=user.id
+            customer_id=user.id
         ).order_by(
             Notification.created_at.desc()
         ).limit(5).all()

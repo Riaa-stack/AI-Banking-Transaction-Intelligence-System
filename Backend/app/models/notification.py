@@ -16,15 +16,6 @@ class NotificationType(Enum):
     SYSTEM = "System"
 
 
-# ==========================================
-# Notification Priority
-# ==========================================
-
-class NotificationPriority(Enum):
-    LOW = "Low"
-    MEDIUM = "Medium"
-    HIGH = "High"
-
 
 class Notification(BaseModel):
 
@@ -34,7 +25,7 @@ class Notification(BaseModel):
     # User
     # ==========================================
 
-    user_id = db.Column(
+    customer_id = db.Column(
         db.UUID(as_uuid=True),
         db.ForeignKey("users.id"),
         nullable=False,
@@ -60,11 +51,6 @@ class Notification(BaseModel):
         nullable=False
     )
 
-    priority = db.Column(
-        db.Enum(NotificationPriority),
-        nullable=False,
-        default=NotificationPriority.LOW
-    )
 
     # ==========================================
     # Status
@@ -75,15 +61,12 @@ class Notification(BaseModel):
         default=False
     )
 
-    read_at = db.Column(
-        db.DateTime
-    )
 
     # ==========================================
     # Relationship
     # ==========================================
 
-    user = db.relationship(
+    customer = db.relationship(
         "User",
         backref=db.backref(
             "notifications",

@@ -208,6 +208,36 @@ export default function Auth({ initialMode = 'login' }) {
       return;
     }
 
+    if (fullName.trim().length < 3) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Invalid Name',
+        text: 'Full name must be at least 3 characters long.',
+        confirmButtonColor: '#4f46e5'
+      });
+      return;
+    }
+
+    if (!/^\d{10}$/.test(mobileNumber.trim())) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Invalid Mobile Number',
+        text: 'Mobile number must be exactly 10 digits.',
+        confirmButtonColor: '#4f46e5'
+      });
+      return;
+    }
+
+    if (password.length < 8) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Weak Password',
+        text: 'Password must be at least 8 characters long.',
+        confirmButtonColor: '#4f46e5'
+      });
+      return;
+    }
+
     if (password !== confirmPassword) {
       Swal.fire({
         icon: 'error',
@@ -220,197 +250,162 @@ export default function Auth({ initialMode = 'login' }) {
 
     // Check account validation
     // ===============================
-// Validate Customer Bank Accounts
-// ===============================
+    // Validate Customer Bank Accounts
+    // ===============================
 
-if (signupRole === "customer") {
-
-    for (let i = 0; i < linkedAccounts.length; i++) {
-
+    if (signupRole === "customer") {
+      for (let i = 0; i < linkedAccounts.length; i++) {
         const acc = linkedAccounts[i];
-
         if (
-            !acc.bankName ||
-            !acc.accountHolderName ||
-            !acc.accountNumber ||
-            !acc.ifscCode ||
-            !acc.branchName ||
-            !acc.accountType ||
-            !acc.balance
+          !acc.bankName ||
+          !acc.accountHolderName ||
+          !acc.accountNumber ||
+          !acc.ifscCode ||
+          !acc.branchName ||
+          !acc.accountType ||
+          acc.balance === ''
         ) {
-
-            Swal.fire({
-
-                icon: "warning",
-
-                title: `Bank Account ${i + 1} Incomplete`,
-
-                text: "Please complete all required bank account details.",
-
-                confirmButtonColor: "#4f46e5"
-
-            });
-
-            return;
-
+          Swal.fire({
+            icon: "warning",
+            title: `Bank Account ${i + 1} Incomplete`,
+            text: "Please complete all required bank account details.",
+            confirmButtonColor: "#4f46e5"
+          });
+          return;
         }
 
+        // Additional validation to match backend requirements for primary bank account
+        if (i === 0) {
+          if (acc.bankName.trim().length < 2) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Invalid Bank Name',
+              text: 'Bank name must be at least 2 characters long.',
+              confirmButtonColor: '#4f46e5'
+            });
+            return;
+          }
+          if (acc.accountHolderName.trim().length < 3) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Invalid Account Holder Name',
+              text: 'Account holder name must be at least 3 characters long.',
+              confirmButtonColor: '#4f46e5'
+            });
+            return;
+          }
+          if (acc.accountNumber.trim().length < 8 || acc.accountNumber.trim().length > 30) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Invalid Account Number',
+              text: 'Account number must be between 8 and 30 characters.',
+              confirmButtonColor: '#4f46e5'
+            });
+            return;
+          }
+          if (acc.ifscCode.trim().length !== 11) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Invalid IFSC Code',
+              text: 'IFSC Code must be exactly 11 characters.',
+              confirmButtonColor: '#4f46e5'
+            });
+            return;
+          }
+          if (acc.branchName.trim().length < 2) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Invalid Branch Name',
+              text: 'Branch name must be at least 2 characters long.',
+              confirmButtonColor: '#4f46e5'
+            });
+            return;
+          }
+        }
+      }
     }
 
-}
-
-
-
     // Register
-const signupData = {
+    const signupData = {
+      full_name: personalData.fullName.trim(),
+      email: personalData.email.trim(),
+      mobile_number: personalData.mobileNumber.trim(),
+      government_id: personalData.governmentId.trim(),
+      date_of_birth: personalData.dob,
+      address: personalData.address.trim(),
+      password: personalData.password,
+      confirm_password: personalData.confirmPassword
+    };
 
-    full_name: personalData.fullName,
+    if (signupRole === "customer") {
+      signupData.bank_name = linkedAccounts[0].bankName.trim();
+      signupData.account_holder_name = linkedAccounts[0].accountHolderName.trim();
+      signupData.account_number = linkedAccounts[0].accountNumber.trim();
+      signupData.ifsc_code = linkedAccounts[0].ifscCode.trim();
+      signupData.branch_name = linkedAccounts[0].branchName.trim();
+      signupData.account_type = linkedAccounts[0].accountType;
+      signupData.current_balance = Number(linkedAccounts[0].balance);
+    }
 
-    email: personalData.email,
+    console.log("Signup Data:", signupData);
 
-    mobile_number: personalData.mobileNumber,
-
-    government_id: personalData.governmentId,
-
-    date_of_birth: personalData.dob,
-
-    address: personalData.address,
-
-    password: personalData.password,
-
-    confirm_password: personalData.confirmPassword,
-
-    // Primary Bank Account
-    bank_name: linkedAccounts[0].bankName,
-
-    account_holder_name: linkedAccounts[0].accountHolderName,
-
-    account_number: linkedAccounts[0].accountNumber,
-
-    ifsc_code: linkedAccounts[0].ifscCode,
-
-    branch_name: linkedAccounts[0].branchName,
-
-    account_type: linkedAccounts[0].accountType,
-
-    current_balance: Number(linkedAccounts[0].balance)
-
-};
-
-console.log("Signup Data:", signupData);
-
-let res;
-
-if (signupRole === "customer") {
-
-    res = await signupCustomer(signupData);
-
-} else {
-
-    res = await signupEmployee(signupData);
-
-}
-
-if (!res.success) {
-
-    Swal.fire({
-
-        icon: "error",
-
-        title: "Registration Failed",
-
-        text: res.message || "Unable to register."
-
-    });
-
-    return;
-
-}
-
-// ===============================
-// Auto Login
-// ===============================
-
-const loginRes = await loginUser(
-
-    personalData.email,
-
-    personalData.password,
-
-    signupRole
-
-);
-
-if (!loginRes.success) {
-
-    Swal.fire({
-
-        icon: "warning",
-
-        title: "Registration Successful",
-
-        text: "Account created successfully, but automatic login failed. Please login manually."
-
-    });
-
-    setMode("login");
-    setLoginEmail(personalData.email);
-    setLoginRole(signupRole);
-
-    return;
-
-}
-
-// ===============================
-// TODO (Next Step)
-// Create Bank Accounts
-// Upload Statements
-// ===============================
-
-Swal.fire({
-
-    icon: "success",
-
-    title: "Registration Successful",
-
-    text: "Your account has been created successfully.",
-
-    timer: 1800,
-
-    showConfirmButton: false
-
-});
-
-if (signupRole === "employee") {
-
-    navigate("/employee/dashboard");
-
-} else {
-
-    navigate("/customer/dashboard");
-
-}
-
-    
-    if (res && res.success) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Registration Successful!',
-        text: 'Your credentials and linked portfolios have been saved. Redirecting to login.',
-        confirmButtonColor: '#4f46e5'
-      }).then(() => {
-        setMode('login');
-        setLoginEmail(email);
-        setLoginPassword(password);
-        setLoginRole('customer');
-      });
+    let res;
+    if (signupRole === "customer") {
+      res = await signupCustomer(signupData);
     } else {
+      res = await signupEmployee(signupData);
+    }
+
+    if (!res.success) {
       Swal.fire({
-        icon: 'error',
-        title: 'Registration Failed',
-        text: res ? res.message : 'Failed to register customer.',
-        confirmButtonColor: '#ef4444'
+        icon: "error",
+        title: "Registration Failed",
+        text: res.message || "Unable to register."
       });
+      return;
+    }
+
+    // ===============================
+    // Auto Login
+    // ===============================
+
+    const loginRes = await loginUser(
+      personalData.email,
+      personalData.password,
+      signupRole
+    );
+
+    if (!loginRes.success) {
+      Swal.fire({
+        icon: "warning",
+        title: "Registration Successful",
+        text: "Account created successfully, but automatic login failed. Please login manually."
+      });
+
+      setMode("login");
+      setLoginEmail(personalData.email);
+      setLoginRole(signupRole);
+      return;
+    }
+
+    // ===============================
+    // TODO (Next Step)
+    // Create Bank Accounts
+    // Upload Statements
+    // ===============================
+
+    Swal.fire({
+      icon: "success",
+      title: "Registration Successful",
+      text: "Your account has been created successfully.",
+      timer: 1800,
+      showConfirmButton: false
+    });
+
+    if (signupRole === "employee") {
+      navigate("/employee/dashboard");
+    } else {
+      navigate("/customer/dashboard");
     }
   };
 

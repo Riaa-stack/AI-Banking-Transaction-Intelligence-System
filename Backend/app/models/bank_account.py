@@ -78,6 +78,12 @@ class BankAccount(BaseModel):
         default=AccountStatus.ACTIVE
     )
 
+    is_security_locked = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=True
+    )
+
     # Optional Information
     account_opening_date = db.Column(
         db.Date

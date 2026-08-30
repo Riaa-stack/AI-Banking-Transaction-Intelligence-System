@@ -50,3 +50,23 @@
 .chat-bubble-ai {
   @apply bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-tl-none px-4 py-3 max-w-[85%] shadow-sm border border-slate-200/50 dark:border-slate-700/50;
 }
+
+/* Fraud overlay scan bar animation */
+@keyframes scan {
+  0%   { width: 0%; opacity: 0.4; }
+  60%  { opacity: 1; }
+  100% { width: 100%; opacity: 0.2; }
+}
+
+/* Fraud probability gauge transition */
+.fraud-gauge-circle {
+  transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Score bars fill animation */
+@keyframes fillBar {
+  from { width: 0%; }
+}
+.score-bar-fill {
+  animation: fillBar 1s ease forwards;
+}

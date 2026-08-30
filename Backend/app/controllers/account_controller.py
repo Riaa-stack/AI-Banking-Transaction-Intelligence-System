@@ -22,7 +22,8 @@ class AccountController:
         print("Headers:", request.headers)
         print("===================================")
 
-        user = User.query.get(get_jwt_identity())
+        user_id = get_jwt_identity()
+        user = User.query.filter_by(id=user_id).first()
 
         json_data = request.get_json()
 
@@ -54,9 +55,12 @@ class AccountController:
     @jwt_required()
     def get_all_accounts():
 
-        user = User.query.get(get_jwt_identity())
+        user_id = get_jwt_identity()
 
-        success, result = AccountService.get_all_accounts(user)
+        if not user_id:
+            return error_response("Unauthorized", 401)
+
+        success, result = AccountService.get_all_accounts(user_id)
 
         if not success:
             return error_response(result)
@@ -72,10 +76,10 @@ class AccountController:
                 "account_number": account.account_number,
                 "ifsc_code": account.ifsc_code,
                 "branch_name": account.branch_name,
-                "account_type": account.account_type.value,
-                "current_balance": float(account.current_balance),
+                "account_type": account.account_type.value if hasattr(account.account_type, 'value') else str(account.account_type),
+                "current_balance": float(account.current_balance or 0),
                 "is_primary": account.is_primary,
-                "account_status": account.account_status.value
+                "account_status": account.account_status.value if hasattr(account.account_status, 'value') else str(account.account_status)
             })
 
         return success_response(
