@@ -180,21 +180,58 @@ CREATE DATABASE ai_banking_db;
 
 ## 🧪 How to Test the System
 
-Follow this step-by-step walkthrough to test the complete user lifecycle and fraud detection mechanisms.
+You can test the system in two ways:
+1. **Automated Live Demo Script (`demo.py`)**: Tests the entire user lifecycle, bank accounts, ML model, rule engine, and Gemini AI in seconds.
+2. **Interactive UI Walkthrough**: Test via the React browser interface at `http://localhost:5173`.
 
-### Test 1: User Registration & Login
+---
+
+### ⚡ Method A: Automated One-Click Live Demo (`demo.py`)
+
+With your backend running on `http://127.0.0.1:5000`, run the demo script in a new terminal:
+```bash
+python demo.py
+```
+This automated script executes the complete lifecycle in the terminal:
+1. Automatically generates and registers a customer with **both personal and primary bank details** (with ₹1,00,000 initial balance).
+2. Authenticates and obtains a JWT Bearer token.
+3. Retrieves active bank accounts and balance.
+4. Simulates a **Legitimate Transfer** (₹1,200 UPI payment -> evaluated as `Low Risk` -> instant `SUCCESS`).
+5. Simulates an **Anomalous High-Risk Transfer** (₹95,000 RTGS -> trips >90% balance drain & limit rules -> evaluated as `BLOCKED` with automatic atomic refund and Gemini GenAI reasoning).
+6. Displays the formatted transaction audit ledger.
+
+---
+
+### 🌐 Method B: Interactive Web UI Testing
+
+#### Test 1: User Registration & Linked Bank Details
+
+> [!NOTE]
+> In this system, registering a customer also provisions their **primary bank account**. A user cannot perform transfers or trigger balance-ratio fraud rules without a linked bank account.
 
 1. Open your browser and navigate to **`http://localhost:5173`**.
-2. Click **Get Started** or navigate to the Auth page.
+2. Click **Get Started** or navigate to the Auth page (`/auth`).
 3. Switch to the **Register** tab:
-   - **Full Name**: `Aarav Sharma`
-   - **Email**: `aarav@example.com`
-   - **Phone**: `9876543210`
-   - **Password**: `SecurePass123!`
-   - **Account Type**: `SAVINGS`
+   - **Personal Details**:
+     - Full Name: `Aarav Sharma`
+     - Email: `aarav@example.com`
+     - Mobile: `9876543210`
+     - Govt ID: `ABCDE1234F`
+     - Date of Birth: `1994-06-15`
+     - Address: `42 Bandra West, Mumbai`
+   - **Bank Account Details**:
+     - Bank Name: `State Bank of India`
+     - Account Holder: `Aarav Sharma`
+     - Account Number: `100098765432`
+     - IFSC Code: `SBIN0001234`
+     - Branch: `Bandra West`
+     - Account Type: `Savings`
+     - Initial Balance: `₹100,000`
+   - **Security**:
+     - Password: `SecurePass123!`
+     - Confirm Password: `SecurePass123!`
 4. Click **Create Account**.
-5. Once registered, log in with your email and password.
-6. Upon first login, complete your profile / account details. Your account will be assigned an account number and an initial balance (or deposit funds via operations).
+5. Once registered, log in with your email and password. Your primary bank account and initial balance are immediately active.
 
 ---
 
