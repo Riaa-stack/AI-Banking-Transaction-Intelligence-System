@@ -2,22 +2,64 @@ from flask import Blueprint
 
 from app.controllers.loan_controller import LoanController
 
-loan_bp = Blueprint("loan", __name__)
+
+# ============================================================
+# LOAN BLUEPRINT
+# ============================================================
+
+loan_bp = Blueprint(
+    "loan",
+    __name__
+)
 
 
-# ==========================================
-# Recommend Loans
-# ==========================================
+# ============================================================
+# GET LOANS
+# ============================================================
+#
+# Frontend calls:
+#
+# GET /api/v1/loans
+#
+# The blueprint is registered in app/__init__.py as:
+#
+# /api/v1/loans
+#
+# Therefore this route becomes:
+#
+# /api/v1/loans
+# ============================================================
 
-@loan_bp.route("/recommend", methods=["POST"])
-def recommend():
+@loan_bp.route(
+    "",
+    methods=["GET"]
+)
+def get_loans():
+
     return LoanController.recommend()
 
 
-# ==========================================
-# Chat with Loan Assistant
-# ==========================================
+# ============================================================
+# RECOMMEND LOANS
+# ============================================================
 
-@loan_bp.route("/chat", methods=["POST"])
+@loan_bp.route(
+    "/recommend",
+    methods=["POST"]
+)
+def recommend():
+
+    return LoanController.recommend()
+
+
+# ============================================================
+# LOAN CHAT
+# ============================================================
+
+@loan_bp.route(
+    "/chat",
+    methods=["POST"]
+)
 def chat():
+
     return LoanController.chat()

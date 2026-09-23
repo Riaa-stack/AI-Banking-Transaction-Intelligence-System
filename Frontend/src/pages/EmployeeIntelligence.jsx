@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useBanking } from '../context/BankingContext';
 import ModuleOfflineBlocker from '../components/ModuleOfflineBlocker';
 import { 
@@ -34,7 +34,7 @@ import Swal from 'sweetalert2';
 
 // 1. FRAUD AUDIT CENTER
 export function EmployeeFraud() {
-  const { transactions, updateAccountStatus, apiConnected, loading, loadData } = useBanking();
+  const { transactions, updateTransactionStatus, apiConnected, loading, loadData } = useBanking();
 
   if (!apiConnected) {
     return (
@@ -46,15 +46,27 @@ export function EmployeeFraud() {
     );
   }
 
-  const flagged = transactions.filter(t => t.isSuspicious);
+  const flagged = transactions.filter(t => t.isSuspicious || t.is_flagged || t.riskScore >= 70 || t.risk_score >= 70 || t.status === 'Blocked' || t.transaction_status === 'Blocked');
 
-  const handleAction = (id, action) => {
-    Swal.fire({
-      title: `${action} Threat Alert`,
-      text: `Ledger entry ${id} marked as ${action === 'Freeze' ? 'FROZEN & LOCKED' : 'SECURE & RESOLVED'}.`,
-      icon: action === 'Freeze' ? 'warning' : 'success',
-      confirmButtonColor: '#4f46e5'
-    });
+  const handleAction = async (id, action) => {
+    try {
+      if (updateTransactionStatus) {
+        await updateTransactionStatus(id, { action });
+      }
+      Swal.fire({
+        title: `${action} Threat Alert`,
+        text: `Ledger entry ${id} marked as ${action === 'Freeze' ? 'FROZEN & LOCKED' : 'MARKED SAFE & RESOLVED'}.`,
+        icon: action === 'Freeze' ? 'warning' : 'success',
+        confirmButtonColor: '#4f46e5'
+      });
+    } catch (err) {
+      Swal.fire({
+        title: 'Operation Failed',
+        text: err.message || 'Unable to update transaction status.',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
+    }
   };
 
   return (
@@ -74,43 +86,53 @@ export function EmployeeFraud() {
             </div>
           ) : (
             <div className="space-y-4">
-              {flagged.map(t => (
-                <div key={t.id} className="rounded-2xl border border-rose-100 bg-rose-50/10 p-5 dark:border-rose-950/20">
-                  <div className="flex gap-3 items-start">
-                    <ShieldAlert className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
-                    <div className="w-full">
-                      <div className="flex justify-between items-center text-xs font-bold text-rose-950 dark:text-rose-400">
-                        <span>{t.description} ({t.id})</span>
-                        <span className="text-rose-600">-${t.amount.toLocaleString()}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-1 italic">
-                        "{t.aiExplanation}"
-                      </p>
-                      
-                      <div className="border-t border-rose-100/40 mt-4 pt-4 flex justify-between items-center text-[10px]">
-                        <div>
-                          <span className="font-extrabold text-rose-600">THREAT PERCENTAGE: {t.riskScore}%</span>
-                          <span className="block text-[9px] text-slate-400">Owner: {t.customerEmail}</span>
+              {flagged.map(t => {
+                const desc = t.description || t.remarks || 'Suspicious Outward Transfer';
+                const ref = t.id || t.transaction_reference;
+                const amt = Number(t.amount || 0);
+                const expl = t.aiExplanation || t.ai_explanation || 'Flagged by autonomous security heuristic.';
+                const score = t.riskScore ?? t.risk_score ?? 0;
+                const email = t.customerEmail || t.email || 'Registered Customer';
+                const fStatus = t.fraud_status || (t.status === 'Blocked' ? 'Blocked' : 'High Risk');
+
+                return (
+                  <div key={ref} className="rounded-2xl border border-rose-100 bg-rose-50/10 p-5 dark:border-rose-950/20">
+                    <div className="flex gap-3 items-start">
+                      <ShieldAlert className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <div className="flex justify-between items-center text-xs font-bold text-rose-950 dark:text-rose-400">
+                          <span>{desc} ({ref})</span>
+                          <span className="text-rose-600">-${amt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleAction(t.id, 'Freeze')}
-                            className="bg-rose-600 text-white font-bold px-3 py-1.5 rounded hover:bg-rose-500 transition-all cursor-pointer"
-                          >
-                            Freeze Account
-                          </button>
-                          <button
-                            onClick={() => handleAction(t.id, 'Resolve')}
-                            className="bg-white text-slate-700 border border-slate-200 font-bold px-3 py-1.5 rounded hover:bg-slate-50 transition-all cursor-pointer"
-                          >
-                            Mark Safe
-                          </button>
+                        <p className="text-[10px] text-slate-500 mt-1 italic">
+                          "{expl}"
+                        </p>
+                        
+                        <div className="border-t border-rose-100/40 mt-4 pt-4 flex justify-between items-center text-[10px]">
+                          <div>
+                            <span className="font-extrabold text-rose-600">THREAT PERCENTAGE: {score}% ({fStatus})</span>
+                            <span className="block text-[9px] text-slate-400">Owner: {email}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleAction(ref, 'Freeze')}
+                              className="bg-rose-600 text-white font-bold px-3 py-1.5 rounded hover:bg-rose-500 transition-all cursor-pointer"
+                            >
+                              Freeze Account
+                            </button>
+                            <button
+                              onClick={() => handleAction(ref, 'Mark Safe')}
+                              className="bg-white text-slate-700 border border-slate-200 font-bold px-3 py-1.5 rounded hover:bg-slate-50 transition-all cursor-pointer"
+                            >
+                              Mark Safe
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -153,14 +175,23 @@ export function EmployeeLoans() {
 
   const requestedLoans = loans.filter(l => l.status === 'Requested' || l.status === 'Approved' || l.status === 'Rejected');
 
-  const handleUnderwriting = (id, decision) => {
-    updateLoanStatus(id, decision);
-    Swal.fire({
-      title: `Loan ${decision}`,
-      text: `Loan Application ${id} has been marked as ${decision}. Notification sent to the client.`,
-      icon: decision === 'Approved' ? 'success' : 'error',
-      confirmButtonColor: '#4f46e5'
-    });
+  const handleUnderwriting = async (id, decision) => {
+    try {
+      await updateLoanStatus(id, decision);
+      Swal.fire({
+        title: `Loan ${decision}`,
+        text: `Loan Application ${id} has been marked as ${decision}. Notification sent to the client.`,
+        icon: decision === 'Approved' ? 'success' : 'error',
+        confirmButtonColor: '#4f46e5'
+      });
+    } catch (err) {
+      Swal.fire({
+        title: 'Action Failed',
+        text: err.message || 'Unable to update loan underwriting status.',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
+    }
   };
 
   return (
@@ -189,61 +220,73 @@ export function EmployeeLoans() {
                   <td colSpan="6" className="py-8 text-center text-slate-400">No loan applications pending inside system queue.</td>
                 </tr>
               ) : (
-                requestedLoans.map(loan => (
-                  <tr key={loan.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-950/20">
-                    <td className="px-4 py-3">
-                      <div>
-                        <span className="font-bold text-slate-950 dark:text-white">{loan.type}</span>
-                        <p className="text-[10px] text-slate-400">ID: {loan.id}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-semibold text-slate-600 dark:text-slate-300">{loan.customerEmail}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-black text-slate-950 dark:text-white">${loan.recommendedAmount.toLocaleString()}</span>
-                      <p className="text-[9px] text-slate-400">APR: {loan.interestRate}%</p>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-bold text-slate-900 dark:text-white block">{loan.tenureMonths} Months</span>
-                      <p className="text-[9px] text-slate-400">${loan.estimatedEmi.toLocaleString()}/mo</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="max-w-xs">
-                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[9px] font-extrabold text-emerald-600 mb-1">
-                          {loan.eligibility}
-                        </span>
-                        <p className="text-[10px] text-slate-500 italic truncate max-w-[150px]">"{loan.aiReasoning}"</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {loan.status === 'Requested' ? (
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => handleUnderwriting(loan.id, 'Approved')}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-950/30 dark:text-emerald-400"
-                            title="Approve Loan"
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleUnderwriting(loan.id, 'Rejected')}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-950/30 dark:text-rose-400"
-                            title="Reject Loan"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
+                requestedLoans.map(loan => {
+                  const lType = loan.type || loan.loan_type || 'Personal Loan';
+                  const amt = Number(loan.amount ?? loan.recommendedAmount ?? 100000);
+                  const rate = Number(loan.interest_rate ?? loan.interestRate ?? 10.5);
+                  const tenure = loan.tenure ?? loan.tenureMonths ?? 24;
+                  const monthlyRate = rate / 12 / 100;
+                  const emi = loan.estimatedEmi || Math.round((amt * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / (Math.pow(1 + monthlyRate, tenure) - 1));
+                  const elig = loan.eligibility || 'Eligible (Credit Cleared)';
+                  const reasoning = loan.aiReasoning || 'Risk tier qualifies under prime reserve underwriting criteria.';
+                  const status = loan.status || 'Requested';
+
+                  return (
+                    <tr key={loan.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-950/20">
+                      <td className="px-4 py-3">
+                        <div>
+                          <span className="font-bold text-slate-950 dark:text-white">{lType}</span>
+                          <p className="text-[10px] text-slate-400">ID: {loan.id}</p>
                         </div>
-                      ) : (
-                        <span className={`text-[10px] font-extrabold uppercase ${
-                          loan.status === 'Approved' ? 'text-emerald-600' : 'text-rose-500'
-                        }`}>
-                          {loan.status}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">{loan.customerEmail}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-black text-slate-950 dark:text-white">${amt.toLocaleString()}</span>
+                        <p className="text-[9px] text-slate-400">APR: {rate}%</p>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-bold text-slate-900 dark:text-white block">{tenure} Months</span>
+                        <p className="text-[9px] text-slate-400">${emi.toLocaleString()}/mo</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="max-w-xs">
+                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[9px] font-extrabold text-emerald-600 mb-1">
+                            {elig}
+                          </span>
+                          <p className="text-[10px] text-slate-500 italic truncate max-w-[150px]">"{reasoning}"</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {status === 'Requested' ? (
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => handleUnderwriting(loan.id, 'Approved')}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-950/30 dark:text-emerald-400"
+                              title="Approve Loan"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleUnderwriting(loan.id, 'Rejected')}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-950/30 dark:text-rose-400"
+                              title="Reject Loan"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className={`text-[10px] font-extrabold uppercase ${
+                            status === 'Approved' ? 'text-emerald-600' : 'text-rose-500'
+                          }`}>
+                            {status}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -267,22 +310,43 @@ export function EmployeeAnalytics() {
     );
   }
 
-  const assetDistribution = [
-    { name: 'Chase Bank Checking', value: 450000 },
-    { name: 'Revolut Savings', value: 380000 },
-    { name: 'Stripe Corporate', value: 890000 },
-    { name: 'External Portfolios', value: 240000 }
-  ];
+  // Aggregate real bank account balances by bank name
+  const bankBalances = {};
+  bankAccounts.forEach(acc => {
+    const name = acc.bankName || acc.bank_name || 'Bank Portfolio';
+    const bal = Number(acc.balance ?? acc.current_balance ?? 0);
+    bankBalances[name] = (bankBalances[name] || 0) + bal;
+  });
 
-  const transactionTrend = [
-    { name: 'Mon', Inflow: 25000, Outflow: 18000 },
-    { name: 'Tue', Inflow: 32000, Outflow: 29000 },
-    { name: 'Wed', Inflow: 40000, Outflow: 38000 },
-    { name: 'Thu', Inflow: 35000, Outflow: 22000 },
-    { name: 'Fri', Inflow: 48000, Outflow: 41000 }
-  ];
+  const assetDistribution = Object.keys(bankBalances).length > 0
+    ? Object.keys(bankBalances).map(name => ({ name, value: bankBalances[name] }))
+    : [{ name: 'Core Reserve', value: 100000 }];
 
-  const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#3b82f6'];
+  // Calculate real Inflow vs Outflow trend by day
+  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dayTrendMap = {};
+  daysOfWeek.forEach(d => {
+    dayTrendMap[d] = { name: d, Inflow: 0, Outflow: 0 };
+  });
+
+  transactions.forEach(t => {
+    const date = new Date(t.created_at || t.timestamp || Date.now());
+    const dayIndex = date.getDay(); // 0 is Sun
+    const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex];
+    const amt = Number(t.amount || 0);
+    const type = t.type || t.transaction_type;
+    if (dayTrendMap[dayName]) {
+      if (type === 'Credit') {
+        dayTrendMap[dayName].Inflow += amt;
+      } else {
+        dayTrendMap[dayName].Outflow += amt;
+      }
+    }
+  });
+
+  const transactionTrend = daysOfWeek.map(d => dayTrendMap[d]);
+
+  const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#3b82f6', '#10b981', '#f59e0b'];
 
   return (
     <div className="space-y-6" id="employee-analytics-page">
@@ -349,11 +413,47 @@ export function EmployeeAnalytics() {
 
 // 4. NOTIFICATIONS / SYSTEM ALERTS
 export function EmployeeNotificationsPage() {
-  const systemAlerts = [
-    { id: "notif-emp-1", title: "API Authentication Warning", desc: "Outward connection block triggered by Node-B12. Security checks required.", time: "12 mins ago", severity: "high" },
-    { id: "notif-emp-2", title: "PDF OCR Queue Backlog", desc: "OCR processing queue loaded with 3 statements. System resources nominal.", time: "1 hour ago", severity: "medium" },
-    { id: "notif-emp-3", title: "Federal Audit Update complete", desc: "Updated KYC directories sync successfully with Flask database templates.", time: "1 day ago", severity: "low" }
-  ];
+  const { notifications, transactions, statements } = useBanking();
+
+  // Combine real notifications from context and dynamic operational alerts
+  const realAlerts = [];
+
+  if (notifications && notifications.length > 0) {
+    notifications.forEach(n => {
+      realAlerts.push({
+        id: String(n.id),
+        title: n.title || 'System Notification',
+        desc: n.message || n.desc || '',
+        time: n.created_at ? new Date(n.created_at).toLocaleDateString() : 'Recent',
+        severity: n.type === 'alert' || n.type === 'warning' ? 'high' : 'medium'
+      });
+    });
+  }
+
+  // Add operational high-risk transaction alerts if any exist
+  transactions.filter(t => t.isSuspicious || t.is_flagged || (t.riskScore ?? t.risk_score ?? 0) >= 70).slice(0, 3).forEach(t => {
+    const rScore = t.riskScore ?? t.risk_score ?? 0;
+    realAlerts.push({
+      id: `alert-tx-${t.id || t.transaction_reference}`,
+      title: `Neural Threat Flagged: ${t.description || 'Ledger Entry'}`,
+      desc: `Risk score ${rScore}% detected. Owner: ${t.customerEmail || 'System'}`,
+      time: new Date(t.created_at || t.timestamp || Date.now()).toLocaleDateString(),
+      severity: 'high'
+    });
+  });
+
+  // Add pending statement alerts
+  statements.filter(s => s.reviewStatus === 'Pending' || s.ocrStatus === 'Completed').slice(0, 2).forEach(s => {
+    realAlerts.push({
+      id: `alert-st-${s.id}`,
+      title: `Statement Review Pending: ${s.statement_name || s.filename || 'Upload'}`,
+      desc: `Extracted OCR ready for auditor confirmation.`,
+      time: new Date(s.created_at || s.uploadDate || Date.now()).toLocaleDateString(),
+      severity: 'medium'
+    });
+  });
+
+  const systemAlerts = realAlerts;
 
   return (
     <div className="space-y-6" id="employee-notifications-page">
@@ -363,22 +463,28 @@ export function EmployeeNotificationsPage() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-sm">
-        <div className="divide-y divide-slate-50 dark:divide-slate-800">
-          {systemAlerts.map(alert => (
-            <div key={alert.id} className="p-4 flex justify-between items-start hover:bg-slate-50/20">
-              <div className="flex gap-3">
-                <div className={`h-2.5 w-2.5 rounded-full mt-1.5 shrink-0 ${
-                  alert.severity === 'high' ? 'bg-rose-500 animate-pulse' : alert.severity === 'medium' ? 'bg-amber-400' : 'bg-emerald-500'
-                }`} />
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">{alert.title}</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">{alert.desc}</p>
-                  <span className="text-[9px] text-slate-400 mt-1 block">{alert.time}</span>
+        {systemAlerts.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400">
+            No active compliance alerts or operational warnings.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50 dark:divide-slate-800">
+            {systemAlerts.map(alert => (
+              <div key={alert.id} className="p-4 flex justify-between items-start hover:bg-slate-50/20">
+                <div className="flex gap-3">
+                  <div className={`h-2.5 w-2.5 rounded-full mt-1.5 shrink-0 ${
+                    alert.severity === 'high' ? 'bg-rose-500 animate-pulse' : alert.severity === 'medium' ? 'bg-amber-400' : 'bg-emerald-500'
+                  }`} />
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">{alert.title}</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">{alert.desc}</p>
+                    <span className="text-[9px] text-slate-400 mt-1 block">{alert.time}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -386,6 +492,9 @@ export function EmployeeNotificationsPage() {
 
 // 5. SETTINGS
 export function EmployeeSettings() {
+  const [anomalyThreshold, setAnomalyThreshold] = useState(80);
+  const [autoMatchOCR, setAutoMatchOCR] = useState(true);
+
   return (
     <div className="space-y-6" id="employee-settings-page">
       <div>
@@ -405,15 +514,27 @@ export function EmployeeSettings() {
               <span className="block font-bold text-slate-700 dark:text-slate-300">Minimum Automated Block Anomaly Score</span>
               <p className="text-[10px] text-slate-400 mb-2">Block transactions scoring above this index without human underwriting.</p>
               <div className="flex justify-between items-center gap-4">
-                <input type="range" min="50" max="95" defaultValue="80" className="flex-1 accent-indigo-600 h-1.5 bg-slate-100 rounded" />
-                <span className="font-extrabold text-indigo-600">80% Anomaly</span>
+                <input 
+                  type="range" 
+                  min="50" 
+                  max="95" 
+                  value={anomalyThreshold} 
+                  onChange={(e) => setAnomalyThreshold(Number(e.target.value))}
+                  className="flex-1 accent-indigo-600 h-1.5 bg-slate-100 rounded cursor-pointer" 
+                />
+                <span className="font-extrabold text-indigo-600">{anomalyThreshold}% Anomaly</span>
               </div>
             </div>
 
             <div>
               <span className="block font-bold text-slate-700 dark:text-slate-300">Statement OCR Autopilot Matching</span>
               <p className="text-[10px] text-slate-400 mb-2">Auto-approve OCR bank statements when matching credit history parameters.</p>
-              <input type="checkbox" defaultChecked className="h-4 w-4 text-indigo-600 rounded border-slate-300" />
+              <input 
+                type="checkbox" 
+                checked={autoMatchOCR} 
+                onChange={(e) => setAutoMatchOCR(e.target.checked)}
+                className="h-4 w-4 text-indigo-600 rounded border-slate-300 cursor-pointer" 
+              />
             </div>
           </div>
         </div>

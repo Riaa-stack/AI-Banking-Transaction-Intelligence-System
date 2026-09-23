@@ -43,31 +43,64 @@ export default function EmployeeDashboard() {
 
   // Metrics calculating from systemic state
   const totalClients = customers.length;
+  const activeAccountsCount = bankAccounts.filter(acc => (acc.status || acc.account_status || 'Active') === 'Active').length;
   const totalPortfolios = bankAccounts.length;
-  const pendingStatements = statements.filter(s => s.ocrStatus === 'Completed' && s.reviewStatus === 'Pending').length;
-  const suspiciousCount = transactions.filter(t => t.isSuspicious).length;
-  const pendingLoans = loans.filter(l => l.status === 'Requested').length;
+  const pendingStatements = statements.filter(s => {
+    const ocr = s.ocrStatus || s.ocr_status || s.processing_status;
+    const rev = s.reviewStatus || (s.processing_status === 'Completed' ? 'Approved' : 'Pending');
+    return rev === 'Pending' || (ocr === 'Completed' && rev !== 'Approved');
+  }).length;
+  const suspiciousCount = transactions.filter(t => t.isSuspicious || t.is_flagged || (t.riskScore ?? t.risk_score ?? 0) >= 70).length;
+  const pendingLoans = loans.filter(l => l.status === 'Requested' || l.status === 'Review').length;
 
-  const totalAssets = bankAccounts.reduce((sum, acc) => sum + (acc.status === 'Active' ? acc.balance : 0), 0);
+  const totalAssets = bankAccounts.reduce((sum, acc) => {
+    const bal = Number(acc.balance ?? acc.current_balance ?? 0);
+    return sum + bal;
+  }, 0);
 
-  // Simple timeline data of latest events
-  const systemLogs = [
-    { text: "Dynamic Credit Forecaster recalibrated Client ID-992031-A", time: "10 mins ago", type: "system" },
-    { text: "OCR Statement extracted checkbook chase_checking_june.pdf", time: "1 hour ago", type: "document" },
-    { text: "High anomaly block applied to outward Stripe Ledger ATM route", time: "3 hours ago", type: "fraud" },
-    { text: "Client Sarah Jenkins linked secondary digital checking portfolio", time: "1 day ago", type: "account" }
-  ];
+  // Derive real chart data dynamically from transactions
+  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dailyMetricsMap = {};
+  daysOfWeek.forEach(day => {
+    dailyMetricsMap[day] = { day, Volume: 0, FraudBlocked: 0 };
+  });
 
-  // System chart data
-  const weeklyVolume = [
-    { day: 'Mon', Volume: 45000, FraudBlocked: 1200 },
-    { day: 'Tue', Volume: 52000, FraudBlocked: 2500 },
-    { day: 'Wed', Volume: 61000, FraudBlocked: 12500 }, // Cryptocurrency spike
-    { day: 'Thu', Volume: 48000, FraudBlocked: 800 },
-    { day: 'Fri', Volume: 67000, FraudBlocked: 400 },
-    { day: 'Sat', Volume: 32000, FraudBlocked: 150 },
-    { day: 'Sun', Volume: 28000, FraudBlocked: 100 }
-  ];
+  transactions.forEach(t => {
+    const date = new Date(t.created_at || t.timestamp || Date.now());
+    const dayName = daysOfWeek[date.getDay()];
+    const amt = Number(t.amount) || 0;
+    if (dailyMetricsMap[dayName]) {
+      dailyMetricsMap[dayName].Volume += amt;
+      if (t.isSuspicious || t.is_flagged || t.status === 'Blocked' || t.transaction_status === 'Blocked') {
+        dailyMetricsMap[dayName].FraudBlocked += amt;
+      }
+    }
+  });
+
+  const weeklyVolume = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => dailyMetricsMap[d]);
+
+  // Real timeline events generated from actual recent transactions, statements, and security incidents
+  const realSystemLogs = [];
+  transactions.slice(0, 3).forEach(t => {
+    const isThreat = t.isSuspicious || t.is_flagged || t.riskScore >= 70;
+    realSystemLogs.push({
+      text: isThreat 
+        ? `Threat flagged: ${t.description} ($${Number(t.amount).toLocaleString()}) - ${t.riskScore}% risk score`
+        : `Ledger entry recorded: ${t.description} ($${Number(t.amount).toLocaleString()})`,
+      time: new Date(t.created_at || Date.now()).toLocaleDateString(),
+      type: isThreat ? 'fraud' : 'account'
+    });
+  });
+
+  statements.slice(0, 2).forEach(s => {
+    realSystemLogs.push({
+      text: `Statement ${s.statement_name || s.filename || 'Upload'}: OCR ${s.ocr_status || s.ocrStatus || 'Completed'}`,
+      time: new Date(s.created_at || Date.now()).toLocaleDateString(),
+      type: 'document'
+    });
+  });
+
+  const systemLogs = realSystemLogs.length > 0 ? realSystemLogs : [];
 
   if (loading && !apiConnected) {
     return (
@@ -107,59 +140,87 @@ export default function EmployeeDashboard() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {/* Total Customers */}
-        <div className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
+        <div className="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Systemic Customers</span>
-            <div className="rounded-lg bg-indigo-50 p-2 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400">
+            <span className="text-[11px] font-semibold text-slate-400">Total Customers</span>
+            <div className="rounded-lg bg-indigo-50 p-1.5 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400">
               <Users className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-4 text-2xl font-black text-slate-950 dark:text-white tracking-tight">{totalClients}</p>
-          <span className="block text-[10px] text-emerald-600 font-semibold mt-1.5">100% KYC Compliant</span>
+          <p className="mt-3 text-2xl font-black text-slate-950 dark:text-white tracking-tight">{totalClients}</p>
+          <span className="block text-[10px] text-emerald-600 font-semibold mt-1">100% KYC Verified</span>
         </div>
 
-        {/* Total Assets Managed */}
-        <div className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
+        {/* Active Accounts */}
+        <div className="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Systemic Reserves</span>
-            <div className="rounded-lg bg-violet-50 p-2 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400">
+            <span className="text-[11px] font-semibold text-slate-400">Active Accounts</span>
+            <div className="rounded-lg bg-emerald-50 p-1.5 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
+              <Wallet className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-3 text-2xl font-black text-slate-950 dark:text-white tracking-tight">{activeAccountsCount}</p>
+          <span className="block text-[10px] text-slate-400 mt-1">of {totalPortfolios} total accounts</span>
+        </div>
+
+        {/* Total Assets / Balances */}
+        <div className="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-400">Total Assets</span>
+            <div className="rounded-lg bg-violet-50 p-1.5 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400">
               <Landmark className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-4 text-2xl font-black text-slate-950 dark:text-white tracking-tight">
+          <p className="mt-3 text-2xl font-black text-slate-950 dark:text-white tracking-tight">
             ${totalAssets.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </p>
-          <span className="block text-[10px] text-slate-400 mt-1.5">Spread across {totalPortfolios} portfolios</span>
+          <span className="block text-[10px] text-slate-400 mt-1">Liquid reserves balance</span>
         </div>
 
-        {/* Pending OCR Documents */}
-        <div className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
+        {/* Flagged / Suspicious Transactions */}
+        <div className="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Statement Audits Queue</span>
-            <div className={`rounded-lg p-2 ${
-              pendingStatements > 0 ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40' : 'bg-slate-50 text-slate-600'
-            }`}>
-              <CheckSquare className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="mt-4 text-2xl font-black text-slate-950 dark:text-white tracking-tight">{pendingStatements}</p>
-          <span className="block text-[10px] text-slate-400 mt-1.5">Pending character review</span>
-        </div>
-
-        {/* Active Threats */}
-        <div className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Active Suspicious Outlays</span>
-            <div className={`rounded-lg p-2 ${
+            <span className="text-[11px] font-semibold text-slate-400">Flagged Anomalies</span>
+            <div className={`rounded-lg p-1.5 ${
               suspiciousCount > 0 ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40' : 'bg-emerald-50 text-emerald-600'
             }`}>
               <ShieldAlert className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-4 text-2xl font-black text-slate-950 dark:text-white tracking-tight">{suspiciousCount}</p>
-          <span className="block text-[10px] text-rose-500 font-semibold mt-1.5">{suspiciousCount > 0 ? 'Urgent audit required' : 'Ledger path secured'}</span>
+          <p className="mt-3 text-2xl font-black text-slate-950 dark:text-white tracking-tight">{suspiciousCount}</p>
+          <span className="block text-[10px] text-rose-500 font-semibold mt-1">
+            {suspiciousCount > 0 ? 'Threat audit required' : 'Ledgers secured'}
+          </span>
+        </div>
+
+        {/* Pending Loans */}
+        <div className="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-400">Pending Loans</span>
+            <div className={`rounded-lg p-1.5 ${
+              pendingLoans > 0 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40' : 'bg-slate-50 text-slate-600'
+            }`}>
+              <Scale className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-3 text-2xl font-black text-slate-950 dark:text-white tracking-tight">{pendingLoans}</p>
+          <span className="block text-[10px] text-slate-400 mt-1">Underwriting queue</span>
+        </div>
+
+        {/* Pending Statement Reviews */}
+        <div className="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm dark:border-slate-800/60 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-400">Pending Statements</span>
+            <div className={`rounded-lg p-1.5 ${
+              pendingStatements > 0 ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40' : 'bg-slate-50 text-slate-600'
+            }`}>
+              <CheckSquare className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-3 text-2xl font-black text-slate-950 dark:text-white tracking-tight">{pendingStatements}</p>
+          <span className="block text-[10px] text-slate-400 mt-1">OCR document reviews</span>
         </div>
       </div>
 

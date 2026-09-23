@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { apiService } from '../lib/api';
 
 const BankingContext = createContext(null);
@@ -34,7 +34,7 @@ export const BankingProvider = ({ children }) => {
   const [apiAttempted, setApiAttempted] = useState(false);
 
   // Core business datasets
-  const [customers, setCustomers] = useState({});
+  const [customers, setCustomers] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [statements, setStatements] = useState([]);
@@ -44,6 +44,9 @@ export const BankingProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
 
   const [chatHistory, setChatHistory] = useState([]);
+
+  // Prevent overlapping background refresh requests.
+  const loadInFlightRef = useRef(false);
 
   // Theme synchronization with Document Class
   useEffect(() => {
@@ -63,38 +66,56 @@ export const BankingProvider = ({ children }) => {
           return;
       }
 
+      // Avoid overlapping refresh calls, especially while employee polling is active.
+      if (loadInFlightRef.current) {
+          return;
+      }
+
+      loadInFlightRef.current = true;
       setLoading(true);
       setError(null);
 
       try {
 
           const accountsRes = await apiService.getBankAccounts();
-          console.log("Accounts:", accountsRes);
-
           const transactionsRes = await apiService.getTransactions();
-          console.log("Transactions:", transactionsRes);
-
           const dashboardRes = await apiService.getCustomerDashboard();
-          console.log("Dashboard:", dashboardRes);
-
           const statementsRes = await apiService.getStatements();
-          console.log("============== STATEMENTS ==============");
-          console.log(statementsRes);
-          console.log(statementsRes.data);
-          console.log("========================================");
+          let loansRes = { data: [] };
+          try {
+            loansRes = await apiService.getLoans();
+          } catch {
+            // fallback
+          }
+          let notifsRes = { data: [] };
+          try {
+            notifsRes = await apiService.getNotifications();
+          } catch {
+            // fallback
+          }
 
           setBankAccounts(accountsRes?.data || []);
-
           setTransactions(transactionsRes?.data || []);
 
-          setCustomers(dashboardRes?.data);
+          let custList = Array.isArray(dashboardRes?.data)
+            ? dashboardRes.data
+            : (dashboardRes?.data?.customers || (dashboardRes?.data?.customer ? [dashboardRes.data.customer] : []));
+          
+          // Employee sessions should receive the employee-visible customer list.
+          // Customer sessions may be restricted by the backend, so failure is ignored.
+          try {
+            const allCustRes = await apiService.getAllCustomers();
+            if (allCustRes?.data && Array.isArray(allCustRes.data) && allCustRes.data.length > 0) {
+              custList = allCustRes.data;
+            }
+          } catch {
+            // ignore if restricted
+          }
+          setCustomers(custList);
 
           setStatements(statementsRes?.data || []);
-
-          setLoans([]);
-
-          setNotifications([]);
-
+          setLoans(loansRes?.data || []);
+          setNotifications(notifsRes?.data || dashboardRes?.data?.notifications || []);
           setApiConnected(true);
 
       } catch (err) {
@@ -107,7 +128,6 @@ export const BankingProvider = ({ children }) => {
               localStorage.removeItem("user-role");
 
               setCurrentUser(null);
-
               setUserRole(null);
 
           }
@@ -120,37 +140,57 @@ export const BankingProvider = ({ children }) => {
           );
 
           setBankAccounts([]);
-
           setTransactions([]);
-
-          setCustomers({});
-
+          setCustomers([]);
           setStatements([]);
-
           setLoans([]);
-
+          setNotifications([]);
       }
 
       finally {
 
           setLoading(false);
-
           setApiAttempted(true);
+          loadInFlightRef.current = false;
 
       }
 
   };
 
-  // Reload data whenever currentUser session's email changes
+  // Load data when the session starts or changes.
   useEffect(() => {
-
     if (!currentUser?.token) {
         return;
     }
 
     loadData();
-
   }, [currentUser?.token]);
+
+  // Keep the Employee Command Console synchronized with changes made by
+  // customers in another browser/session. This re-reads the existing
+  // backend endpoints and does not create mock data or new routes.
+  useEffect(() => {
+    const role = String(userRole || currentUser?.role || '').toLowerCase();
+
+    if (!currentUser?.token || role !== 'employee') {
+        return;
+    }
+
+    const refreshEmployeeData = () => {
+        loadData();
+    };
+
+    // Refresh when the employee returns to this browser tab.
+    window.addEventListener('focus', refreshEmployeeData);
+
+    // Lightweight background refresh every 5 seconds.
+    const intervalId = window.setInterval(refreshEmployeeData, 5000);
+
+    return () => {
+        window.removeEventListener('focus', refreshEmployeeData);
+        window.clearInterval(intervalId);
+    };
+  }, [currentUser?.token, currentUser?.role, userRole]);
   // Auth Operations
   const loginUser = async (email, password, role) => {
 
@@ -250,7 +290,7 @@ export const BankingProvider = ({ children }) => {
     setTransactions([]);
     setStatements([]);
     setLoans([]);
-    setCustomers({});
+    setCustomers([]);
   };
 
   const signupCustomer = async (signupData) => {
@@ -355,6 +395,28 @@ export const BankingProvider = ({ children }) => {
     }
   };
 
+  // Get single account details from backend
+  const getAccountDetails = async (id) => {
+    try {
+      const res = await apiService.getAccountDetails(id);
+      return res?.data || res;
+    } catch (err) {
+      return bankAccounts.find(a => a.id === id || a.account_number === id || a.accountNumber === id) || null;
+    }
+  };
+
+  // Get account specific transactions from backend
+  const getAccountTransactions = async (id) => {
+    try {
+      const res = await apiService.getAccountTransactions(id);
+      return res?.data || [];
+    } catch (err) {
+      const acc = bankAccounts.find(a => a.id === id || a.account_number === id || a.accountNumber === id);
+      const accNum = acc?.account_number || acc?.accountNumber;
+      return transactions.filter(t => t.sender_account_id === id || t.accountNumber === accNum || t.account_number === accNum || t.account_id === id);
+    }
+  };
+
   // Outbound transfer
   const sendMoney = async (transactionData) => {
 
@@ -427,21 +489,56 @@ export const BankingProvider = ({ children }) => {
 
   };
 
-  // const updateStatementStatus = async (id, status) => {
-  //   setLoading(true);
-  //   setError(null);
-  //   try {
-  //     const res = await apiService.updateStatementStatus(id, status);
-  //     await loadData();
-  //     return res;
-  //   } catch (err) {
-  //     const errMsg = err.response?.data?.message || err.message || "Failed to update statement status.";
-  //     setError(errMsg);
-  //     throw new Error(errMsg);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  // Update statement review status
+  const updateStatementStatus = async (id, status) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiService.updateStatementStatus(id, status);
+      await loadData();
+      return res;
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || "Failed to update statement status.";
+      setError(errMsg);
+      throw new Error(errMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update loan review status
+  const updateLoanStatus = async (id, newStatus) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiService.updateLoanStatus(id, newStatus);
+      await loadData();
+      return res;
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || "Failed to update loan status.";
+      setError(errMsg);
+      throw new Error(errMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update transaction fraud action
+  const updateTransactionStatus = async (id, payload) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiService.updateTransactionStatus(id, payload);
+      await loadData();
+      return res;
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || "Failed to update transaction status.";
+      setError(errMsg);
+      throw new Error(errMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Chat
   const sendChatMessage = async (messageText) => {
@@ -564,13 +661,15 @@ export const BankingProvider = ({ children }) => {
       signupEmployee,
       addAccount,
       updateAccountStatus,
+      getAccountDetails,
+      getAccountTransactions,
       sendMoney,
       uploadStatement,
-      // updateStatementStatus,
+      updateStatementStatus,
+      updateLoanStatus,
+      updateTransactionStatus,
       chatHistory,
       sendChatMessage,
-      // requestLoanApplication,
-      // updateLoanStatus,
       // triggerCreditForecasting,
       dismissNotification,
       markAllNotificationsRead

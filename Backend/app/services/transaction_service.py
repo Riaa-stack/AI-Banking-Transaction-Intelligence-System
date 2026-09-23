@@ -3,10 +3,14 @@ from decimal import Decimal
 
 from app.extensions import db
 from app.ai.ai_service import AIService
+
+from app.models.user import User, UserRole
+
 from app.models.bank_account import (
     BankAccount,
     AccountStatus
 )
+
 from app.models.transaction import (
     Transaction,
     TransactionStatus,
@@ -38,27 +42,50 @@ class TransactionService:
             ).first()
 
             if not sender_account:
+
                 return False, "Sender account not found."
 
-            if getattr(sender_account, "is_security_locked", False):
-                return False, "ACCOUNT_SECURITY_LOCKED: This demo account is temporarily locked because of a simulated security incident."
+            if getattr(
+                sender_account,
+                "is_security_locked",
+                False
+            ):
+
+                return (
+                    False,
+                    "ACCOUNT_SECURITY_LOCKED: "
+                    "This demo account is temporarily locked "
+                    "because of a simulated security incident."
+                )
 
             if sender_account.account_status != AccountStatus.ACTIVE:
-                return False, "Your account is not active."
+
+                return (
+                    False,
+                    "Your account is not active."
+                )
 
             # ==========================================
             # Amount Validation
             # ==========================================
 
-            amount = Decimal(str(data["amount"]))
+            amount = Decimal(
+                str(data["amount"])
+            )
 
             if amount <= 0:
-                return False, "Transaction amount must be greater than zero."
 
-            if amount > TransactionService.MAX_TRANSACTION_LIMIT:
                 return (
                     False,
-                    f"Maximum transaction limit is ₹{TransactionService.MAX_TRANSACTION_LIMIT}."
+                    "Transaction amount must be greater than zero."
+                )
+
+            if amount > TransactionService.MAX_TRANSACTION_LIMIT:
+
+                return (
+                    False,
+                    f"Maximum transaction limit is "
+                    f"₹{TransactionService.MAX_TRANSACTION_LIMIT}."
                 )
 
             # ==========================================
@@ -66,9 +93,11 @@ class TransactionService:
             # ==========================================
 
             if (
-                sender_account.account_number ==
+                sender_account.account_number
+                ==
                 data["receiver_account_number"]
             ):
+
                 return (
                     False,
                     "You cannot transfer money to your own account."
@@ -79,129 +108,182 @@ class TransactionService:
             # ==========================================
 
             if sender_account.current_balance < amount:
-                return False, "Insufficient account balance."
 
-            balance_before = sender_account.current_balance
-            balance_after  = balance_before - amount
+                return (
+                    False,
+                    "Insufficient account balance."
+                )
+
+            balance_before = (
+                sender_account.current_balance
+            )
+
+            balance_after = (
+                balance_before - amount
+            )
 
             # ==========================================
-            # Deduct Balance (staged – not yet committed)
+            # Deduct Balance
             # ==========================================
 
-            sender_account.current_balance = balance_after
+            sender_account.current_balance = (
+                balance_after
+            )
 
             # ==========================================
             # Generate Transaction Reference
             # ==========================================
 
             transaction_reference = (
-                "TXN-" +
+                "TXN-"
+                +
                 uuid.uuid4().hex[:12].upper()
             )
 
             # ==========================================
-            # Create Transaction Record (staged – not yet committed)
+            # Create Transaction
             # ==========================================
 
             transaction = Transaction(
 
-                transaction_reference=transaction_reference,
+                transaction_reference=
+                    transaction_reference,
 
-                sender_account_id=sender_account.id,
+                sender_account_id=
+                    sender_account.id,
 
-                receiver_name=data["receiver_name"],
+                receiver_name=
+                    data["receiver_name"],
 
-                receiver_account_number=data[
-                    "receiver_account_number"
-                ],
+                receiver_account_number=
+                    data["receiver_account_number"],
 
-                receiver_bank=data["receiver_bank"],
+                receiver_bank=
+                    data["receiver_bank"],
 
-                receiver_ifsc=data["receiver_ifsc"],
+                receiver_ifsc=
+                    data["receiver_ifsc"],
 
-                amount=amount,
+                amount=
+                    amount,
 
-                remarks=data.get("remarks", ""),
+                remarks=
+                    data.get("remarks", ""),
 
-                transaction_type=TransactionType.DEBIT,
+                transaction_type=
+                    TransactionType.DEBIT,
 
-                available_balance_before=balance_before,
+                available_balance_before=
+                    balance_before,
 
-                available_balance_after=balance_after,
+                available_balance_after=
+                    balance_after,
 
-                transaction_source=TransactionSource(
-                    data["transaction_source"]
-                ),
+                transaction_source=
+                    TransactionSource(
+                        data["transaction_source"]
+                    ),
 
-                transaction_status=TransactionStatus.PENDING
+                transaction_status=
+                    TransactionStatus.PENDING
             )
 
             db.session.add(transaction)
 
-            # NOTE: We do NOT commit here. The balance deduction and the
-            # transaction record are staged together. The single commit at
-            # the very end of this method is the only one that fires, keeping
-            # the entire operation fully atomic. If anything raises an
-            # exception, db.session.rollback() will undo both the balance
-            # change and the transaction record.
-
             # ==========================================
-            # AI Analysis (Transaction Monitor + Fraud Detector)
-            # FraudDetector stages AI fields on the transaction object
-            # but does NOT commit — this service owns the commit.
+            # AI Analysis
+            #
+            # AI fields are staged on the transaction.
+            # The commit happens only once below.
             # ==========================================
 
             fraud_report = {}
 
             try:
 
-                ai_result = AIService.analyze_transaction(
-                    transaction,
-                    sender_account
+                ai_result = (
+                    AIService.analyze_transaction(
+                        transaction,
+                        sender_account
+                    )
                 )
 
-                fraud_report = ai_result.get("fraud", {})
+                fraud_report = (
+                    ai_result.get(
+                        "fraud",
+                        {}
+                    )
+                )
 
-                # ==========================================
-                # Determine Final Transaction Status
-                # fraud_status was already staged on the transaction
-                # object by FraudDetector.analyze().
-                # ==========================================
+                fraud_status = (
+                    transaction.fraud_status
+                    or
+                    "Low Risk"
+                )
 
-                fraud_status = transaction.fraud_status or "Low Risk"
+                # ======================================
+                # Fraud Block
+                # ======================================
 
                 if fraud_status.lower() == "blocked":
 
-                    # Refund the deducted amount (still uncommitted)
-                    sender_account.current_balance = balance_before
-                    transaction.available_balance_after = balance_before
-                    transaction.transaction_status = TransactionStatus.BLOCKED
+                    # Refund deducted amount
+
+                    sender_account.current_balance = (
+                        balance_before
+                    )
+
+                    transaction.available_balance_after = (
+                        balance_before
+                    )
+
+                    transaction.transaction_status = (
+                        TransactionStatus.BLOCKED
+                    )
+
                     transaction.failure_reason = (
-                        "Transaction blocked by AI fraud detection."
+                        "Transaction blocked by "
+                        "AI fraud detection."
                     )
 
                 else:
-                    transaction.transaction_status = TransactionStatus.SUCCESS
+
+                    transaction.transaction_status = (
+                        TransactionStatus.SUCCESS
+                    )
 
             except Exception as ai_err:
 
-                # AI failure must NEVER block a legitimate transaction.
-                # Mark as not reviewed and proceed to SUCCESS.
-                transaction.ai_reviewed       = False
-                transaction.fraud_status      = "Low Risk"
-                transaction.risk_score        = 0.0
+                # ======================================
+                # AI Failure
+                #
+                # AI failure must not block a legitimate
+                # transaction.
+                # ======================================
+
+                transaction.ai_reviewed = False
+
+                transaction.fraud_status = (
+                    "Low Risk"
+                )
+
+                transaction.risk_score = 0.0
+
                 transaction.fraud_probability = 0.0
-                transaction.transaction_status = TransactionStatus.SUCCESS
+
+                transaction.transaction_status = (
+                    TransactionStatus.SUCCESS
+                )
 
             # ==========================================
-            # Single Atomic Commit — commits everything:
-            #   • balance deduction on sender_account
-            #   • transaction record
-            #   • AI fraud fields staged by FraudDetector
-            #   • final transaction_status
+            # Atomic Commit
             # ==========================================
 
             db.session.commit()
+
+            # ==========================================
+            # Return Transaction Result
+            # ==========================================
 
             return True, {
 
@@ -215,7 +297,9 @@ class TransactionService:
                     float(transaction.amount),
 
                 "available_balance":
-                    float(sender_account.current_balance),
+                    float(
+                        sender_account.current_balance
+                    ),
 
                 "transaction_status":
                     transaction.transaction_status.value,
@@ -223,37 +307,85 @@ class TransactionService:
                 "fraud_report": {
 
                     "ml_probability":
-                        round(float(fraud_report.get("ml_probability", 0)), 2),
+                        round(
+                            float(
+                                fraud_report.get(
+                                    "ml_probability",
+                                    0
+                                )
+                            ),
+                            2
+                        ),
 
                     "rule_score":
-                        round(float(fraud_report.get("rule_score", 0)), 2),
+                        round(
+                            float(
+                                fraud_report.get(
+                                    "rule_score",
+                                    0
+                                )
+                            ),
+                            2
+                        ),
 
                     "final_score":
-                        round(float(fraud_report.get("final_score", 0)), 2),
+                        round(
+                            float(
+                                fraud_report.get(
+                                    "final_score",
+                                    0
+                                )
+                            ),
+                            2
+                        ),
 
                     "fraud_probability":
-                        round(float(fraud_report.get("fraud_probability", 0)), 2),
+                        round(
+                            float(
+                                fraud_report.get(
+                                    "fraud_probability",
+                                    0
+                                )
+                            ),
+                            2
+                        ),
 
                     "fraud_status":
-                        fraud_report.get("fraud_status", "Low Risk"),
+                        fraud_report.get(
+                            "fraud_status",
+                            "Low Risk"
+                        ),
 
                     "is_flagged":
-                        fraud_report.get("is_flagged", False),
+                        fraud_report.get(
+                            "is_flagged",
+                            False
+                        ),
 
                     "recommendation":
-                        fraud_report.get("recommendation", ""),
+                        fraud_report.get(
+                            "recommendation",
+                            ""
+                        ),
 
                     "reasons":
-                        fraud_report.get("reasons", []),
+                        fraud_report.get(
+                            "reasons",
+                            []
+                        ),
 
                     "model_used":
-                        fraud_report.get("model_used", False),
+                        fraud_report.get(
+                            "model_used",
+                            False
+                        ),
 
                     "ai_analysis":
-                        fraud_report.get("ai_analysis", {}),
-
+                        fraud_report.get(
+                            "ai_analysis",
+                            {}
+                        ),
                 }
-
             }
 
         except Exception as e:
@@ -262,10 +394,14 @@ class TransactionService:
 
             return False, str(e)
 
-
-
     # ==================================================
     # Transaction History
+    #
+    # CUSTOMER:
+    #     Own transactions only.
+    #
+    # EMPLOYEE:
+    #     ALL customer transactions.
     # ==================================================
 
     @staticmethod
@@ -273,17 +409,60 @@ class TransactionService:
 
         try:
 
-            transactions = (
-                Transaction.query
-                .join(BankAccount)
-                .filter(
-                    BankAccount.user_id == user_id
+            # ==========================================
+            # Find Logged-In User
+            # ==========================================
+
+            user = User.query.filter_by(
+                id=user_id
+            ).first()
+
+            if not user:
+
+                return False, "User not found."
+
+            # ==========================================
+            # EMPLOYEE
+            #
+            # Employee Command Console gets the complete
+            # transaction ledger.
+            # ==========================================
+
+            if user.role == UserRole.EMPLOYEE:
+
+                transactions = (
+                    Transaction.query
+                    .join(BankAccount)
+                    .order_by(
+                        Transaction.created_at.desc()
+                    )
+                    .all()
                 )
-                .order_by(
-                    Transaction.created_at.desc()
+
+            # ==========================================
+            # CUSTOMER
+            #
+            # Customer gets only transactions belonging
+            # to their own bank account.
+            # ==========================================
+
+            else:
+
+                transactions = (
+                    Transaction.query
+                    .join(BankAccount)
+                    .filter(
+                        BankAccount.user_id == user.id
+                    )
+                    .order_by(
+                        Transaction.created_at.desc()
+                    )
+                    .all()
                 )
-                .all()
-            )
+
+            # ==========================================
+            # Build Response
+            # ==========================================
 
             history = []
 
@@ -326,7 +505,6 @@ class TransactionService:
 
                     "created_at":
                         transaction.created_at.isoformat()
-
                 })
 
             return True, history
@@ -337,25 +515,74 @@ class TransactionService:
 
     # ==================================================
     # Transaction Details
+    #
+    # CUSTOMER:
+    #     Own transaction only.
+    #
+    # EMPLOYEE:
+    #     Can inspect any transaction.
     # ==================================================
 
     @staticmethod
-    def get_transaction(user_id, transaction_id):
+    def get_transaction(
+        user_id,
+        transaction_id
+    ):
 
         try:
 
-            transaction = (
+            # ==========================================
+            # Find Logged-In User
+            # ==========================================
+
+            user = User.query.filter_by(
+                id=user_id
+            ).first()
+
+            if not user:
+
+                return False, "User not found."
+
+            # ==========================================
+            # Base Query
+            # ==========================================
+
+            query = (
                 Transaction.query
                 .join(BankAccount)
                 .filter(
-                    Transaction.id == transaction_id,
-                    BankAccount.user_id == user_id
+                    Transaction.id == transaction_id
                 )
-                .first()
             )
 
+            # ==========================================
+            # CUSTOMER
+            #
+            # Restrict to customer's own account.
+            # ==========================================
+
+            if user.role != UserRole.EMPLOYEE:
+
+                query = query.filter(
+                    BankAccount.user_id == user.id
+                )
+
+            # ==========================================
+            # Fetch Transaction
+            # ==========================================
+
+            transaction = query.first()
+
             if not transaction:
-                return False, "Transaction not found."
+
+                return (
+                    False,
+                    "Transaction not found."
+                )
+
+            # ==========================================
+            # Return Transaction Details
+            # ==========================================
 
             return True, {
 
@@ -384,10 +611,14 @@ class TransactionService:
                     transaction.remarks,
 
                 "balance_before":
-                    float(transaction.available_balance_before),
+                    float(
+                        transaction.available_balance_before
+                    ),
 
                 "balance_after":
-                    float(transaction.available_balance_after),
+                    float(
+                        transaction.available_balance_after
+                    ),
 
                 "status":
                     transaction.transaction_status.value,
@@ -415,7 +646,6 @@ class TransactionService:
 
                 "created_at":
                     transaction.created_at.isoformat()
-
             }
 
         except Exception as e:

@@ -9,10 +9,17 @@ from app.extensions import (
     cors
 )
 
-# Import all models
+# ============================================================
+# IMPORT ALL MODELS
+# ============================================================
+
 from app import models
 
-# Import Blueprints
+
+# ============================================================
+# IMPORT BLUEPRINTS
+# ============================================================
+
 from app.routes.auth_routes import auth_bp
 from app.routes.account_routes import account_bp
 from app.routes.onboarding_routes import onboarding_bp
@@ -23,70 +30,89 @@ from app.routes.chatbot_routes import chatbot_bp
 from app.routes.credit_routes import credit_bp
 from app.routes.dashboard_routes import dashboard_bp
 from app.routes.loan_routes import loan_bp
+from app.routes.notification_routes import notification_bp
 from app.routes.security_routes import security_bp
 
 
 def create_app():
+
     app = Flask(__name__)
 
-    # ============================
+    # ========================================================
     # DEBUG SETTINGS
-    # ============================
+    # ========================================================
+
     app.config["PROPAGATE_EXCEPTIONS"] = True
     app.config["TRAP_HTTP_EXCEPTIONS"] = True
 
-    # Load Configuration
+    # ========================================================
+    # LOAD CONFIGURATION
+    # ========================================================
+
     app.config.from_object(Config)
 
-    # Initialize Extensions
+    # ========================================================
+    # INITIALIZE EXTENSIONS
+    # ========================================================
+
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
     bcrypt.init_app(app)
     cors.init_app(app)
 
-    # ============================
-    # JWT Error Handlers
-    # ============================
+    # ========================================================
+    # JWT ERROR HANDLERS
+    # ========================================================
 
     @jwt.invalid_token_loader
     def invalid_token_callback(reason):
+
         print("====================================")
         print("INVALID TOKEN")
         print(reason)
         print("====================================")
+
         return {
             "success": False,
             "message": reason
         }, 401
 
+
     @jwt.unauthorized_loader
     def unauthorized_callback(reason):
+
         print("====================================")
         print("UNAUTHORIZED")
         print(reason)
         print("====================================")
+
         return {
             "success": False,
             "message": reason
         }, 401
 
+
     @jwt.expired_token_loader
     def expired_callback(jwt_header, jwt_payload):
+
         print("====================================")
         print("TOKEN EXPIRED")
         print("====================================")
+
         return {
             "success": False,
             "message": "Token expired"
         }, 401
 
-    # ============================
+
+    # ========================================================
     # GLOBAL ERROR LOGGER
-    # ============================
+    # ========================================================
 
     @app.errorhandler(Exception)
     def handle_exception(e):
+
         import traceback
 
         print("\n")
@@ -101,79 +127,141 @@ def create_app():
 
         raise e
 
-    # ============================
-    # Register Blueprints
-    # ============================
 
+    # ========================================================
+    # REGISTER BLUEPRINTS
+    # ========================================================
+
+    # Authentication
     app.register_blueprint(
         auth_bp,
         url_prefix="/api/v1/auth"
     )
 
+
+    # Bank Accounts
     app.register_blueprint(
         account_bp,
         url_prefix="/api/v1/accounts"
     )
 
+
+    # Onboarding
     app.register_blueprint(
         onboarding_bp,
         url_prefix="/api/v1/onboarding"
     )
 
+
+    # Customers
     app.register_blueprint(
         customer_bp,
         url_prefix="/api/v1/customers"
     )
 
+
+    # Transactions
     app.register_blueprint(
         transaction_bp,
         url_prefix="/api/v1/transactions"
     )
 
+
+    # Statements
     app.register_blueprint(
         statement_bp,
         url_prefix="/api/v1/statements"
     )
 
+
+    # Chatbot
     app.register_blueprint(
         chatbot_bp,
         url_prefix="/api/v1/chatbot"
     )
 
+
+    # Credit
     app.register_blueprint(
         credit_bp,
         url_prefix="/api/v1/credit"
     )
 
+
+    # Dashboard
     app.register_blueprint(
         dashboard_bp,
         url_prefix="/api/v1/dashboard"
     )
+
+
+    # ========================================================
+    # LOANS
+    # ========================================================
 
     app.register_blueprint(
         loan_bp,
         url_prefix="/api/v1/loans"
     )
 
+
+    # ========================================================
+    # NOTIFICATIONS
+    # ========================================================
+    #
+    # notification_routes.py already contains:
+    #
+    #     url_prefix="/notifications"
+    #
+    # Therefore DO NOT use:
+    #
+    #     /api/v1/notifications
+    #
+    # here.
+    #
+    # We use /api/v1 so the final route becomes:
+    #
+    #     /api/v1/notifications
+    #
+    # ========================================================
+
+    app.register_blueprint(
+        notification_bp,
+        url_prefix="/api/v1"
+    )
+
+
+    # Security
     app.register_blueprint(
         security_bp,
         url_prefix="/api/v1/security"
     )
 
-    # Ensure tables and columns exist
+
+    # ========================================================
+    # CREATE DATABASE TABLES
+    # ========================================================
+
     with app.app_context():
+
         db.create_all()
 
-    # ============================
-    # Home Route
-    # ============================
+
+    # ========================================================
+    # HOME ROUTE
+    # ========================================================
 
     @app.route("/")
     def home():
+
         return {
             "success": True,
-            "message": "🚀 AI Banking & Transaction Intelligence System Backend Running Successfully",
+            "message": (
+                "🚀 AI Banking & Transaction Intelligence "
+                "System Backend Running Successfully"
+            ),
             "version": "1.0.0"
         }, 200
+
 
     return app
