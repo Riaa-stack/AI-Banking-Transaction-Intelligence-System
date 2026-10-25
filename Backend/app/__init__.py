@@ -42,8 +42,8 @@ def create_app():
     # DEBUG SETTINGS
     # ========================================================
 
-    app.config["PROPAGATE_EXCEPTIONS"] = True
-    app.config["TRAP_HTTP_EXCEPTIONS"] = True
+    app.config["PROPAGATE_EXCEPTIONS"] = False
+    app.config["TRAP_HTTP_EXCEPTIONS"] = False
 
     # ========================================================
     # LOAD CONFIGURATION
@@ -112,12 +112,22 @@ def create_app():
 
     @app.errorhandler(Exception)
     def handle_exception(e):
+        from flask import request
+        from werkzeug.exceptions import HTTPException
+
+        if isinstance(e, HTTPException):
+            print(f"[HTTP {e.code}] {request.method} {request.path} - {e.description}")
+            return {
+                "success": False,
+                "message": e.description or "Resource not found",
+                "path": request.path
+            }, e.code
 
         import traceback
 
         print("\n")
         print("=" * 80)
-        print("FULL PYTHON TRACEBACK")
+        print(f"AN ERROR OCCURRED INSIDE FLASK APP ({request.method} {request.path}):")
         print("=" * 80)
 
         traceback.print_exc()
@@ -125,7 +135,10 @@ def create_app():
         print("=" * 80)
         print("\n")
 
-        raise e
+        return {
+            "success": False,
+            "message": "Internal Server Error"
+        }, 500
 
 
     # ========================================================

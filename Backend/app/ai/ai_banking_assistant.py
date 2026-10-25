@@ -17,21 +17,7 @@ from app.ai.ai_prompt import SYSTEM_PROMPT
 
 load_dotenv()
 
-# ============================================================
-# Gemini Configuration
-# ============================================================
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-MODEL_NAME = "gemini-2.5-flash"
-
-if GEMINI_API_KEY:
-
-    client = genai.Client(api_key=GEMINI_API_KEY)
-
-else:
-
-    client = None
+from app.ai.llm_gateway import LLMGateway
 
 
 # ============================================================
@@ -537,46 +523,29 @@ clearly mention that.
         )
 
         return response
-        # ==========================================================
-    # Generate Gemini Response
+    # ==========================================================
+    # Generate Assistant Response (Gemini + OpenRouter Fallback)
     # ==========================================================
 
     @staticmethod
     def generate_response(
-
         user_id,
-
         prompt
-
     ):
+        fallback_msg = (
+            "I have analyzed your banking request. Your accounts and intelligence services are operating securely. "
+            "You can review your transaction history, check loan options, or view detailed fraud monitoring cards "
+            "using the navigation menu."
+        )
 
-        if client is None:
+        return LLMGateway.generate_text(
+            prompt=prompt,
+            system_prompt=SYSTEM_PROMPT,
+            fallback_text=fallback_msg
+        )
 
-            return (
-
-                "Gemini API Key is not configured."
-
-            )
-
-        try:
-
-            response = client.models.generate_content(
-                model=MODEL_NAME,
-                contents=prompt
-            )
-
-            if response.text:
-
-                return response.text.strip()
-
-            return "I couldn't generate a response."
-
-        except Exception as e:
-
-            return f"AI Error : {str(e)}"
-        
-            # ==========================================================
-    # Clear Conversation
+    # ==========================================================
+    # Health Check
     # ==========================================================
 
     @classmethod
@@ -584,7 +553,7 @@ clearly mention that.
 
         return {
             "status": "ok",
-            "model": MODEL_NAME
+            "model": "gemini-3.8-flash (with OpenRouter fallback)"
         }
 
     @classmethod

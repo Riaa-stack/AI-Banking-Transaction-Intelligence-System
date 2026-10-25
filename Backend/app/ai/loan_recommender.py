@@ -1,20 +1,9 @@
 import json
 from decimal import Decimal
-from google import genai
-from app.config.config import Config
+from app.ai.llm_gateway import LLMGateway
 
-api_key = Config.GEMINI_API_KEY
-if api_key:
-    try:
-        client = genai.Client(api_key=api_key)
-    except Exception as e:
-        print(f"Warning: Failed to initialize genai.Client in AILoanRecommender: {e}")
-        client = None
-else:
-    client = None
 
 class AILoanRecommender:
-    MODEL_NAME = "gemini-2.5-flash"
 
     @staticmethod
     def calculate_emi(principal, annual_rate, tenure_months):
@@ -188,42 +177,29 @@ You MUST respond ONLY with valid JSON in exactly this format (no markdown, no te
 }}
 """
 
-        try:
-            response = client.models.generate_content(
-                model=AILoanRecommender.MODEL_NAME,
-                contents=prompt
-            )
-            raw_text = response.text.strip()
-            
-            # Strip markdown if present
-            if raw_text.startswith("```"):
-                raw_text = raw_text.split("```")[1]
-                if raw_text.startswith("json"):
-                    raw_text = raw_text[4:]
-                raw_text = raw_text.strip()
+        # Prepare deterministic domain fallback
+        fallback_recs = []
+        for name, opt in calculated_options.items():
+            if opt["eligibility_status"] != "Not Eligible":
+                fallback_recs.append({
+                    "loan_type": name,
+                    "match_score": 85 if purpose.lower() in name.lower() else 50,
+                    "eligibility_status": opt["eligibility_status"],
+                    "calculated_emi": opt["estimated_emi"],
+                    "interest_rate": opt["interest_rate"],
+                    "approved_principal": opt["approved_principal"],
+                    "tenure_months": opt["preferred_tenure"],
+                    "advantages": ["Automated system pre-qualification", "Competitive interest rates"],
+                    "disadvantages": ["Standard credit assessment terms apply"],
+                    "why_this_loan": "Calculated based on your verified credit profile and borrowing capacity."
+                })
+        fallback_data = {"recommendations": sorted(fallback_recs, key=lambda x: x["match_score"], reverse=True)[:3]}
 
-            parsed = json.loads(raw_text)
-            return parsed
-
-        except Exception as e:
-            print("Gemini Loan Recommender Error:", e)
-            # Safe fallback returning the raw calculated parameters directly
-            fallback_recs = []
-            for name, opt in calculated_options.items():
-                if opt["eligibility_status"] != "Not Eligible":
-                    fallback_recs.append({
-                        "loan_type": name,
-                        "match_score": 85 if purpose.lower() in name.lower() else 50,
-                        "eligibility_status": opt["eligibility_status"],
-                        "calculated_emi": opt["estimated_emi"],
-                        "interest_rate": opt["interest_rate"],
-                        "approved_principal": opt["approved_principal"],
-                        "tenure_months": opt["preferred_tenure"],
-                        "advantages": ["Automated system pre-qualification"],
-                        "disadvantages": ["General terms apply"],
-                        "why_this_loan": f"Calculated based on standard borrowing metrics."
-                    })
-            return {"recommendations": sorted(fallback_recs, key=lambda x: x["match_score"], reverse=True)[:3]}
+        return LLMGateway.generate_json(
+            prompt=prompt,
+            fallback_data=fallback_data,
+            system_prompt="You are a loan recommendation engine that only outputs valid JSON."
+        )
 
     @staticmethod
     def chat(message, context_data, chat_history=None):
@@ -261,11 +237,24 @@ INSTRUCTIONS
 6. Keep your answers concise, informative, and mathematically consistent with the rules.
 """
 
-        try:
-            response = client.models.generate_content(
-                model=AILoanRecommender.MODEL_NAME,
-                contents=prompt
-            )
-            return response.text.strip()
-        except Exception as e:
-            return f"Loan Assistant Chat service temporarily unavailable: {str(e)}"
+        # Deterministic domain fallback for loan chat
+        top_summary = ""
+        if isinstance(context_data, list) and len(context_data) > 0:
+            top = context_data[0]
+            top_summary = f"Your top recommended option is {top.get('loan_type', 'Personal Loan')} at {top.get('interest_rate', 10.5)}% with an estimated monthly EMI of ₹{top.get('calculated_emi', 0):,.2f}."
+        elif isinstance(context_data, dict) and "recommendations" in context_data:
+            recs = context_data["recommendations"]
+            if recs:
+                top = recs[0]
+                top_summary = f"Your top recommended option is {top.get('loan_type', 'Personal Loan')} at {top.get('interest_rate', 10.5)}% with an estimated monthly EMI of ₹{top.get('calculated_emi', 0):,.2f}."
+
+        fallback_chat = (
+            f"Based on your calculated financial profile: {top_summary} "
+            f"To minimize total interest, consider choosing a shorter tenure if your monthly cashflow permits."
+        )
+
+        return LLMGateway.generate_text(
+            prompt=prompt,
+            system_prompt="You are an expert AI Loan Assistant.",
+            fallback_text=fallback_chat
+        )

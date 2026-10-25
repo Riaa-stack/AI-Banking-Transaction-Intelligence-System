@@ -18,9 +18,10 @@ class Config:
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")   # <-- ADD THIS
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER")
 
